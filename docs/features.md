@@ -127,4 +127,4 @@ Supported interface/interaction surfaces include English, German, Turkish and Sp
 - [Private security reporting](../SECURITY.md) for vulnerabilities.
 - [Service continuity commitment](service-continuity.md) for the existing shutdown policy.
 
-WarGuardian's first hosted WARDOGS server is free under the current offer. This catalog does not change pricing, announce new distributions or grant access to application source code.
+One WARDOGS server is always free, with every feature. Paid plans add more servers. This catalog does not change pricing, announce new distributions or grant access to application source code.
