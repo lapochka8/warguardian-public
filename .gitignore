@@ -9,6 +9,9 @@
 /docs/*
 !/docs/overview.md
 !/docs/integrations.md
+!/docs/service-continuity.md
+!/docs/self-hosting.md
+!/docs/shared-intelligence.md
 !/.github/
 /.github/*
 !/.github/ISSUE_TEMPLATE/
