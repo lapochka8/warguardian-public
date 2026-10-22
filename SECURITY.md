@@ -28,6 +28,6 @@ Reports are reviewed privately so the team can reproduce the behavior, assess im
 
 ## Current and planned products
 
-The hosted WarGuardian application is the current service. The proposed self-hosted edition and expanded shared-intelligence service are not released products. This documentation repository does not distribute the application's code or provide a current self-hosted security-update channel.
+The hosted WarGuardian application is the current service. This documentation repository does not distribute the application's code.
 
 For ordinary connection failures, billing questions or game-server moderation disputes, use [support](SUPPORT.md). For licensing and a future shutdown release, see [service continuity](docs/service-continuity.md).

@@ -24,8 +24,6 @@ The stated trigger is WarGuardian permanently ceasing operation. An ordinary mai
 
 The application source and models are not distributed in this public documentation repository today. A future open-source release must include the actual software, its applicable licenses and the material covered by the commitment. A public README alone is not a software release, source escrow or a current open-source license grant.
 
-The proposed self-hosted edition could arrive while WarGuardian continues operating. That is a separate product plan, not a condition that narrows or replaces the shutdown commitment. Read the [self-hosting direction](self-hosting.md) for its current status.
-
 ## Customer questions
 
 Use [support](../SUPPORT.md) for questions about your account, export or service status. Existing terms govern refunds and export rights. Do not post private records in a public issue when asking for help.

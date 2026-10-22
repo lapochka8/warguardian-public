@@ -6,7 +6,7 @@ Public documentation corrections and feature suggestions are welcome.
 - Link to current product guides and pricing instead of copying changing details.
 - Do not submit application code, credentials, private records or operational material.
 - Use [private security reporting](SECURITY.md) for vulnerabilities.
-- Preserve the distinction between current hosted features, planned game integrations, proposed self-hosting and proposed shared-intelligence services.
+- Preserve the distinction between current hosted features and planned game integrations.
 - Keep the service continuity statement consistent with the [published policy](https://warguardian.app/legal). Do not narrow its coverage of WarGuardian-owned code and models.
 - Describe a specific workflow or useful fact. Do not add keyword lists, fabricated reviews, unsupported competitor claims or promises of search placement.
 

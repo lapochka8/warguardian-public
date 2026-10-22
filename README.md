@@ -9,7 +9,7 @@ Your game server stays with its existing hosting provider. Your first WARDOGS se
 - [Connect a WARDOGS server](https://warguardian.app/wardogs-rcon/setup)
 - [Discord support](https://discord.gg/uw8HStQBAq)
 - [Game integration status](docs/integrations.md)
-- [Self-hosting direction](docs/self-hosting.md) and [service continuity commitment](docs/service-continuity.md)
+- [Service continuity commitment](docs/service-continuity.md)
 
 ## WARDOGS administration capabilities
 
@@ -33,7 +33,7 @@ WarGuardian brings WARDOGS player management and community moderation into the s
 
 Community ban records and shared lists help participating server owners coordinate their rules. Sharing remains a deliberate community decision. A ban recorded by another community is attributed information to review, not proof that the player violated your rules. Review the source, reason, evidence and intended server scope before applying it.
 
-Existing private ban-list sharing is available in the hosted product. The broader paid shared-intelligence service described below is a proposal, not an additional feature already included in today's network.
+Private ban-list sharing is available in the hosted product, within each community's permissions and sharing choices.
 
 ### Player history, kill feeds and evidence review
 
@@ -74,16 +74,6 @@ Keep passwords and tokens private. Your community does not need to move its dedi
 
 No release dates are announced for the planned integrations. WARDOGS support does not imply that another game's protocol, commands, account identifiers or event sources are supported. See the [integration status page](docs/integrations.md) for the boundaries of each planned game.
 
-## Hosted service, self-hosting and shared intelligence
-
-WarGuardian is available today as a hosted service. **A public self-hosted distribution is being planned; installation packages and a self-hosting license are not currently offered in this repository.**
-
-Our proposed direction is a self-hostable server-management application with optional connected services. Local administration, a community's own records and access to its own data should remain useful independently of a shared intelligence subscription. The hosting provider would manage its own installation and operating costs; WarGuardian's hosted service would remain an option for communities that want us to operate the panel.
-
-The proposed paid service focuses on **shared player intelligence and community ban data**: source-attributed records from participating communities, reviewed evidence, account context, watchlists and ongoing updates. It would not make all customer records public or turn a shared IP address into proof that two accounts belong to one person. Participation, permissions and evidence quality matter as much as the number of records.
-
-Self-hosting and the expanded intelligence subscription are **plans**, with no announced launch date or price. They do not change existing subscriptions or current private-list sharing. Read the [self-hosting direction](docs/self-hosting.md) and [proposed shared-intelligence service](docs/shared-intelligence.md).
-
 ## Open-source and service continuity commitment
 
 The existing [service continuity policy](https://warguardian.app/legal) states:
@@ -96,7 +86,7 @@ The existing [service continuity policy](https://warguardian.app/legal) states:
 >
 > Existing refund and data export rights remain unchanged.
 
-This is a shutdown continuity commitment, separate from the proposed earlier self-hosting release. It is not a claim that the application source or models are open source today. See [the commitment and its scope](docs/service-continuity.md).
+This is a shutdown continuity commitment. It is not a claim that the application source or models are open source today. See [the commitment and its scope](docs/service-continuity.md).
 
 ## Choosing a WARDOGS RCON panel
 

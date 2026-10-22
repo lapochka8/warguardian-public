@@ -43,9 +43,7 @@ No public Arma 3 onboarding or launch date is offered yet. It is a separate inte
 | --- | --- |
 | Hosted WARDOGS panel | Available; current plans and beta terms apply |
 | Existing private shared-list workflows | Available within the hosted product's permissions and scope |
-| Public self-hosted application distribution | Planned; no package, license or date announced |
-| Expanded paid shared-intelligence subscription | Proposed; no price or launch announced |
 
-See [self-hosting](self-hosting.md) and [shared intelligence](shared-intelligence.md). A roadmap entry is not a promise that all features or games will be released together.
+A roadmap entry is not a promise that all features or games will be released together.
 
 [Current WARDOGS capabilities](https://warguardian.app/wardogs-rcon) · [Integration questions](https://discord.gg/uw8HStQBAq)

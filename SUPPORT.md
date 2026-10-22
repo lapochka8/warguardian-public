@@ -33,9 +33,9 @@ Redact credentials, connection details, player identifiers and private community
 
 ## Feature and integration requests
 
-Describe the task, the game and the result you need. For self-hosting, explain which workflows must work without a central connection. For shared intelligence, explain the moderation decision you need help making and what source attribution you would expect.
+Describe the task, the game and the result you need. For moderation workflows, explain the decision you need help making and what information you would expect staff to see.
 
-Requests are useful planning input; an issue does not create a release date or guarantee that a proposed feature is available. Check [integration status](docs/integrations.md), [self-hosting](docs/self-hosting.md) and [shared-intelligence plans](docs/shared-intelligence.md) first.
+Requests are useful planning input; an issue does not create a release date or guarantee that a proposed feature is available. Check [integration status](docs/integrations.md) first.
 
 ## Service and policy questions
 
