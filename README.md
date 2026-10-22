@@ -6,6 +6,7 @@ Your game server stays with its existing hosting provider. Your first WARDOGS se
 
 - [Open WarGuardian](https://warguardian.app/)
 - [WARDOGS RCON capabilities](https://warguardian.app/wardogs-rcon)
+- [Current feature catalog](docs/features.md)
 - [Connect a WARDOGS server](https://warguardian.app/wardogs-rcon/setup)
 - [Discord support](https://discord.gg/uw8HStQBAq)
 - [Game integration status](docs/integrations.md)
@@ -24,6 +25,9 @@ Your game server stays with its existing hosting provider. Your first WARDOGS se
 | Server controls | Manage supported maps, rotations, match settings and priority queue access. |
 | Automation | Configure supported scheduled announcements, player policies and server rules. |
 | Discord and integrations | Connect community notifications and authorized bot or script workflows. |
+| Reports and tickets | Receive player reports, assign staff, link reported players and retain private staff notes. |
+| Priority access | Manage reserved slots, whitelist access and configured seeding rewards. |
+| Public community pages | Publish enabled leaderboards, player careers and report links. |
 
 Controls depend on the game server's exposed capabilities, connected event sources and the staff member's permissions. A saved moderation decision and a confirmed game-server action are different outcomes; staff should check the reported result.
 
@@ -52,6 +56,24 @@ Community ownership, account access and private player evidence belong in authen
 Use supported WARDOGS map and match controls, manage rotations and configure priority access alongside player moderation. Automation supports recurring community work such as announcements, broadcasts and supported player or server policies. Available actions vary by server capability and configuration.
 
 Common workflows include connecting a new server, inviting moderators, reviewing a player report, applying a timed ban, coordinating a private shared list and checking a scheduled announcement. Follow the [connection guide](https://warguardian.app/wardogs-rcon/setup) for the initial RCON setup, then configure the workflows your community actually needs.
+
+### Automation rules available today
+
+WarGuardian's WARDOGS automation workspace includes team balancing, team-switch locks, Infected mode, sustained high-ping rules, idle cleanup, name and protected-tag policies, team-kill limits, weapon restrictions and Steam-based player policies. Server tools include seeding protection, seeding rewards, empty-server resets, weather cycling and outage alerts. Messaging tools include player messages, recurring announcements and restart warnings.
+
+Custom rules combine supported triggers, conditions and actions. For example, a schedule can broadcast a message, a player join can send a private welcome, and supported player conditions can warn or kick. Rule configuration, required sources and staff permissions determine what can run. Feed-based rules need the appropriate game events; seeding protection's configured respawn cycle affects connected players rather than detecting who is inactive.
+
+See the [automation feature table](docs/features.md#automation-and-community-rules) for rule purposes and requirements.
+
+### Player reports, Steam context and review tools
+
+The ticket inbox brings community reports together with assignment, replies, private staff notes and links to reported players. Staff can use player profiles to review aliases, visits, notes, command history and available Steam profile, VAC-ban and game-ban information. Watchlist activity helps staff find returning flagged accounts and recorded name changes.
+
+Player review adds combat measurements, weapon comparisons and visible source coverage. Optional AI summaries use a configured provider or available trial and require staff to check findings against the underlying evidence. Steam data, statistical flags, network associations and AI output each have limits; none independently proves cheating.
+
+### Community pages and integrations
+
+Communities can enable public leaderboards, player careers and player-report entry points. Discord integration supports community workflows and staff notifications. Authorized API and MCP integrations support bots, scripts and evidence-review tools. Availability depends on configuration, access and the connected sources. Optional community branding follows current plan terms.
 
 ## Connect your first WARDOGS server
 
@@ -97,6 +119,7 @@ WarGuardian is intended for communities seeking hosted WARDOGS server management
 ## Support, security and documentation
 
 - [Product questions](docs/overview.md): hosting, RCON access, staff roles and evidence coverage.
+- [Feature catalog](docs/features.md): current WARDOGS tools, automation rules and required sources.
 - [Support](SUPPORT.md): connection issues, account questions and useful redacted report details.
 - [Security reporting](SECURITY.md): private vulnerability reports through GitHub Security Advisories.
 - [Contributing](CONTRIBUTING.md): documentation corrections and feature suggestions.

@@ -4,6 +4,8 @@
 
 WarGuardian is a hosted WARDOGS RCON panel for community server administrators. It combines server controls with player moderation, staff access, shared ban lists and evidence review.
 
+The [current feature catalog](features.md) also covers reports and tickets, Steam context, watchlists, map controls, priority access, automation, public pages and authorized integrations.
+
 ## Does it replace game hosting?
 
 No. Your dedicated game server stays with its existing hosting provider. WarGuardian connects to the server’s supported RCON endpoint.
