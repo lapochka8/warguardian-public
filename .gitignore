@@ -1,0 +1,18 @@
+# Only reviewed public documentation belongs in this repository.
+*
+!/.gitignore
+!/README.md
+!/SUPPORT.md
+!/SECURITY.md
+!/CONTRIBUTING.md
+!/docs/
+/docs/*
+!/docs/overview.md
+!/docs/integrations.md
+!/.github/
+/.github/*
+!/.github/ISSUE_TEMPLATE/
+/.github/ISSUE_TEMPLATE/*
+!/.github/ISSUE_TEMPLATE/config.yml
+!/.github/ISSUE_TEMPLATE/documentation.yml
+!/.github/ISSUE_TEMPLATE/feature-request.yml
