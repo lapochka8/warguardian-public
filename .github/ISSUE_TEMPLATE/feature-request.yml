@@ -1,0 +1,16 @@
+name: Feature suggestion
+description: Suggest a public-facing product capability.
+body:
+  - type: input
+    id: game
+    attributes:
+      label: Game
+    validations:
+      required: true
+  - type: textarea
+    id: request
+    attributes:
+      label: Requested capability
+      description: Describe the task and expected result. Keep private server and account details out.
+    validations:
+      required: true

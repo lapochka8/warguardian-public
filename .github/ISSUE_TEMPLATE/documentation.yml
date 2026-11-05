@@ -1,0 +1,16 @@
+name: Documentation correction
+description: Report inaccurate or missing public documentation.
+body:
+  - type: input
+    id: page
+    attributes:
+      label: Page URL or file
+    validations:
+      required: true
+  - type: textarea
+    id: correction
+    attributes:
+      label: Suggested correction
+      description: Do not include credentials, private records or unredacted logs.
+    validations:
+      required: true

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Account and server support
+    url: https://discord.gg/uw8HStQBAq
+    about: Contact support privately for account or server-specific issues.
+  - name: Security report
+    url: https://github.com/lapochka8/warguardian-public/security/advisories/new
+    about: Report vulnerabilities privately.
