@@ -274,16 +274,42 @@ export async function linuxProcesses(
   return entries;
 }
 
+/**
+ * Windows PowerShell from System32, never a `powershell.exe` found on the
+ * search path. A PowerShell 7 console passes on its own module path, which
+ * keeps Windows PowerShell from loading its modules (`Get-Acl` among them),
+ * so that variable is left out.
+ */
+export function windowsPowerShell(env: NodeJS.ProcessEnv = process.env) {
+  const command = win32.join(
+    env.SystemRoot || 'C:\\Windows',
+    'System32',
+    'WindowsPowerShell',
+    'v1.0',
+    'powershell.exe',
+  );
+  const childEnv: NodeJS.ProcessEnv = { ...env };
+  for (const key of Object.keys(childEnv))
+    if (key.toLowerCase() === 'psmodulepath') delete childEnv[key];
+  return { command, env: childEnv };
+}
+
 const windowsQuery =
   "Get-CimInstance Win32_Process | Where-Object { $_.Name -match '^(arma3server|dayzserver|armareforgerserver)' } | Select-Object ProcessId,ExecutablePath,CommandLine,@{n='OwnerSid';e={(Invoke-CimMethod -InputObject $_ -MethodName GetOwnerSid -ErrorAction SilentlyContinue).Sid}} | ConvertTo-Json -Compress";
 
 /** Windows: server processes from `Win32_Process`. */
 export async function windowsProcesses(): Promise<ProcessEntry[]> {
+  const powershell = windowsPowerShell();
   const output = await new Promise<string>((resolve) => {
     execFile(
-      'powershell.exe',
+      powershell.command,
       ['-NoProfile', '-NonInteractive', '-Command', windowsQuery],
-      { timeout: 20_000, windowsHide: true, maxBuffer: 4 * 1024 * 1024 },
+      {
+        env: powershell.env,
+        timeout: 20_000,
+        windowsHide: true,
+        maxBuffer: 4 * 1024 * 1024,
+      },
       (error, stdout) => resolve(error ? '' : stdout),
     );
   });
@@ -355,11 +381,12 @@ const fileSecurityScript = [
 export async function windowsFileSecurity(
   path: string,
 ): Promise<FileSecurity | null> {
+  const powershell = windowsPowerShell();
   const output = await new Promise<string>((resolve) => {
     const child = spawn(
-      'powershell.exe',
+      powershell.command,
       ['-NoProfile', '-NonInteractive', '-Command', fileSecurityScript],
-      { windowsHide: true, timeout: 20_000 },
+      { env: powershell.env, windowsHide: true, timeout: 20_000 },
     );
     let text = '';
     child.stdout.setEncoding('utf8');
