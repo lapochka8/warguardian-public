@@ -1,0 +1,29 @@
+<!--
+  WinSW 2.12 service configuration for the WarGuardian Agent.
+  The installer replaces @EXECUTABLE@ and @DATA@ and sets the service account
+  to NT SERVICE\WarGuardianAgent with sc.exe. Only the installer writes this
+  file. The executable is the installed agent in the program folder. It runs
+  the version named in state\current-version, which self-update sets before
+  it exits with code 75, so the failure actions restart the service on the
+  new version.
+-->
+<service>
+  <id>WarGuardianAgent</id>
+  <name>WarGuardian Agent</name>
+  <description>Connects game servers on this host to WarGuardian.</description>
+  <executable>@EXECUTABLE@</executable>
+  <arguments>service</arguments>
+  <workingdirectory>@DATA@</workingdirectory>
+  <startmode>Automatic</startmode>
+  <delayedAutoStart>true</delayedAutoStart>
+  <onfailure action="restart" delay="10 sec"/>
+  <onfailure action="restart" delay="30 sec"/>
+  <onfailure action="restart" delay="60 sec"/>
+  <resetfailure>1 hour</resetfailure>
+  <stoptimeout>20 sec</stoptimeout>
+  <logpath>@DATA@\logs</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>8</keepFiles>
+  </log>
+</service>

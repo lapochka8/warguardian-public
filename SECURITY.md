@@ -1,33 +1,35 @@
-# Security reporting
+# Security
 
-Use this repository’s **Security → Report a vulnerability** option to submit a private report.
+## Report a vulnerability
 
-[Submit a private security advisory](https://github.com/lapochka8/warguardian-public/security/advisories/new).
+Report security problems in the WarGuardian Agent privately through GitHub:
+open [Report a vulnerability](https://github.com/lapochka8/warguardian-public/security/advisories/new)
+on the **Security** tab of this repository.
 
-Include the affected public URL, a concise description and safe reproduction steps. Do not access other users’ records or interrupt running game servers. Keep credentials and personal data out of screenshots and logs.
+Do not open a public issue or pull request for a vulnerability.
 
-Do not disclose vulnerabilities in public GitHub issues. If private reporting is unavailable, contact the team through [Discord support](https://discord.gg/uw8HStQBAq) to arrange a private reporting channel before sharing details.
+Include:
 
-## Useful report details
+- the Agent version (`warguardian-agent version`) and the operating system;
+- the steps that show the problem, and what an attacker gains;
+- whether the problem needs access to the game host, the network or
+  WarGuardian.
 
-- The affected WarGuardian page or feature.
-- The permissions and account role needed to reproduce the issue, without sharing account credentials.
-- Expected behavior, observed behavior and a minimal reproduction sequence.
-- The potential impact and whether you observed any unintended access or change.
-- Approximate observation time and a redacted screenshot or minimal sample where useful.
+Do not include RCON passwords, Agent secrets or setup codes. Replace them with
+made-up values.
 
-A report can be useful without a complete exploit. If you encounter another community's private information, stop testing and describe the exposure privately without downloading or redistributing its records.
+## Scope
 
-## Keep testing controlled
+- The Agent in `src/`, `protocol/` and `vendor/`.
+- The Linux installer `install.sh` and the systemd unit.
+- The Windows installer and its service configuration.
+- The release workflow and the release files: `SHA256SUMS`,
+  `SHA256SUMS.sig` and the signatures of the Windows files.
 
-Use accounts and servers you own or are authorized to test. Do not interrupt running game servers, flood the service, access unrelated records or publish working attack details in a documentation issue. Ask through the private report if testing scope is unclear.
+Problems in the WarGuardian website or panel are also welcome through the same
+form.
 
-## Handling and disclosure
+## Supported versions
 
-Reports are reviewed privately so the team can reproduce the behavior, assess impact and coordinate a correction. Keep related evidence in that private thread. Coordinate any public disclosure after the issue has been addressed; this page does not promise a fixed response or remediation deadline.
-
-## Current and planned products
-
-The hosted WarGuardian application is the current service. This documentation repository does not distribute the application's code.
-
-For ordinary connection failures, billing questions or game-server moderation disputes, use [support](SUPPORT.md). For licensing and a future shutdown release, see [service continuity](docs/service-continuity.md).
+Security fixes go into the latest release. To install it, run the Linux
+command or the Windows installer of that release.

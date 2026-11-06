@@ -1,0 +1,45 @@
+[Unit]
+Description=WarGuardian Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=warguardian-agent
+Group=warguardian-agent
+# Arma Reforger servers run in reforger-host-connector@.service instead.
+ExecStart=/opt/warguardian-agent/service/current/warguardian-agent run --config /etc/warguardian/agent.json --skip-profile arma-reforger
+# The agent exits after installing an update. systemd starts the new version.
+Restart=always
+RestartSec=10
+# 78: no server is configured for this service. It stays stopped.
+RestartPreventExitStatus=78
+TimeoutStopSec=30
+# The agent updates itself in its own tree. The configuration stays
+# read-only. Enrollment rewrites it outside the service.
+ReadWritePaths=/opt/warguardian-agent/service
+StateDirectory=warguardian-agent
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

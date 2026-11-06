@@ -1,0 +1,246 @@
+name: Agent release
+
+on:
+  push:
+    tags:
+      - 'agent-v*'
+
+permissions: {}
+
+concurrency:
+  group: agent-release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: 24.22.1
+  WARGUARDIAN_AGENT_PANEL: https://warguardian.app
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
+      - name: Check the tag
+        id: version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#agent-v}"
+          package=$(node -p "require('./package.json').version")
+          if [ "$version" != "$package" ]; then
+            echo "::error::Tag $TAG does not match package.json version $package."
+            exit 1
+          fi
+          if ! grep -Eq "^release_public_key='MCowBQYDK2VwAyEA[A-Za-z0-9+/]{43}='$" install.sh; then
+            echo "::error::install.sh holds no release public key."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm test
+
+  linux:
+    name: Build ${{ matrix.target }}
+    needs: test
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - target: linux-x64
+            runner: ubuntu-24.04
+          - target: linux-arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    env:
+      WARGUARDIAN_AGENT_VERSION: ${{ needs.test.outputs.version }}
+      WARGUARDIAN_AGENT_MANIFEST_PUBLIC_KEYS: ${{ vars.AGENT_MANIFEST_PUBLIC_KEYS }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
+      - run: npm ci --ignore-scripts
+      - name: Build
+        env:
+          TARGET: ${{ matrix.target }}
+        run: node build/build-agent.mjs --target "$TARGET" --pinned-node --require-all --no-installer --out-dir out
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ matrix.target }}
+          path: out/warguardian-agent-${{ matrix.target }}
+          if-no-files-found: error
+          retention-days: 7
+
+  windows:
+    name: Build win-x64 and the installer
+    environment: agent-release
+    needs: test
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    outputs:
+      signed: ${{ steps.signing.outputs.enabled }}
+    env:
+      WARGUARDIAN_AGENT_VERSION: ${{ needs.test.outputs.version }}
+      WARGUARDIAN_AGENT_MANIFEST_PUBLIC_KEYS: ${{ vars.AGENT_MANIFEST_PUBLIC_KEYS }}
+      INNO_SETUP_URL: https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-6.7.3.exe
+      INNO_SETUP_SHA256: 9c73c3bae7ed48d44112a0f48e66742c00090bdb5bef71d9d3c056c66e97b732
+      WINSW_URL: https://github.com/winsw/winsw/releases/download/v2.12.0/WinSW-x64.exe
+      WINSW_SHA256: 05b82d46ad331cc16bdc00de5c6332c1ef818df8ceefcd49c726553209b3a0da
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
+      - run: npm ci --ignore-scripts
+      - name: Check the Authenticode settings
+        id: signing
+        shell: bash
+        env:
+          CONFIGURED: ${{ secrets.AZURE_TENANT_ID != '' && secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_CLIENT_SECRET != '' && vars.TRUSTED_SIGNING_ENDPOINT != '' && vars.TRUSTED_SIGNING_ACCOUNT != '' && vars.TRUSTED_SIGNING_PROFILE != '' }}
+        run: echo "enabled=$CONFIGURED" >> "$GITHUB_OUTPUT"
+      - name: Install Inno Setup and WinSW
+        shell: pwsh
+        run: |
+          $tools = Join-Path $env:RUNNER_TEMP 'tools'
+          New-Item -ItemType Directory -Force $tools | Out-Null
+          function Get-Pinned([string] $Url, [string] $Sha256, [string] $Path) {
+            Invoke-WebRequest -Uri $Url -OutFile $Path
+            $actual = (Get-FileHash -Algorithm SHA256 $Path).Hash.ToLowerInvariant()
+            if ($actual -ne $Sha256) { throw "$Url does not match its pinned SHA-256." }
+          }
+          Get-Pinned $env:INNO_SETUP_URL $env:INNO_SETUP_SHA256 "$tools\innosetup.exe"
+          Get-Pinned $env:WINSW_URL $env:WINSW_SHA256 "$tools\WinSW-x64.exe"
+          $inno = Join-Path $tools 'inno'
+          $setup = Start-Process -FilePath "$tools\innosetup.exe" -Wait -PassThru `
+            -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/NOICONS', "/DIR=$inno"
+          if ($setup.ExitCode -ne 0) { throw "The Inno Setup installer exited with $($setup.ExitCode)." }
+          "WARGUARDIAN_ISCC=$inno\ISCC.exe" >> $env:GITHUB_ENV
+          "WARGUARDIAN_WINSW=$tools\WinSW-x64.exe" >> $env:GITHUB_ENV
+      - name: Build the executable
+        run: node build/build-agent.mjs --target win-x64 --pinned-node --require-all --no-installer --out-dir out
+      - name: Sign the executable
+        if: steps.signing.outputs.enabled == 'true'
+        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ vars.TRUSTED_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.TRUSTED_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.TRUSTED_SIGNING_PROFILE }}
+          files: ${{ github.workspace }}\out\warguardian-agent-win-x64.exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+      - name: Build the installer
+        run: node build/build-agent.mjs --installer-from out/warguardian-agent-win-x64.exe --out-dir out
+      - name: Sign the installer
+        if: steps.signing.outputs.enabled == 'true'
+        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ vars.TRUSTED_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.TRUSTED_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.TRUSTED_SIGNING_PROFILE }}
+          files: ${{ github.workspace }}\out\WarGuardianAgentSetup-${{ needs.test.outputs.version }}.exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+      - name: Check the Authenticode signatures
+        if: steps.signing.outputs.enabled == 'true'
+        shell: pwsh
+        run: |
+          foreach ($file in @('out\warguardian-agent-win-x64.exe', "out\WarGuardianAgentSetup-$env:WARGUARDIAN_AGENT_VERSION.exe")) {
+            $status = (Get-AuthenticodeSignature $file).Status
+            if ($status -ne 'Valid') { throw "$file has signature status $status." }
+          }
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: win-x64
+          path: |
+            out/warguardian-agent-win-x64.exe
+            out/WarGuardianAgentSetup-${{ needs.test.outputs.version }}.exe
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Publish the release
+    environment: agent-release
+    needs: [test, linux, windows]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.test.outputs.version }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: release
+          merge-multiple: true
+      - name: Write SHA256SUMS and the release notes
+        env:
+          AGENT_RELEASE_SIGNING_KEY: ${{ secrets.AGENT_RELEASE_SIGNING_KEY }}
+          WINDOWS_SIGNED: ${{ needs.windows.outputs.signed }}
+        run: |
+          windows=()
+          if [ "$WINDOWS_SIGNED" = true ]; then windows=(--windows-authenticode); fi
+          node build/release.mjs --version "$VERSION" --dir release --installer install.sh \
+            --notes "$RUNNER_TEMP/release-notes.md" "${windows[@]}"
+      - name: Check the release files
+        run: |
+          if [ -f release/SHA256SUMS.sig ]; then
+            key=$(sed -n "s/^release_public_key='\(.*\)'$/\1/p" install.sh)
+            printf -- '-----BEGIN PUBLIC KEY-----\n%s\n-----END PUBLIC KEY-----\n' "$key" >"$RUNNER_TEMP/release-key.pem"
+            openssl pkeyutl -verify -pubin -inkey "$RUNNER_TEMP/release-key.pem" -rawin \
+              -in release/SHA256SUMS -sigfile release/SHA256SUMS.sig
+          fi
+          (cd release && sha256sum --check --strict SHA256SUMS)
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          files=(
+            release/warguardian-agent-linux-x64
+            release/warguardian-agent-linux-arm64
+            release/warguardian-agent-win-x64.exe
+            "release/WarGuardianAgentSetup-$VERSION.exe"
+            release/install.sh
+            release/SHA256SUMS
+          )
+          if [ -f release/SHA256SUMS.sig ]; then files+=(release/SHA256SUMS.sig); fi
+          prerelease=()
+          case "$VERSION" in *-*) prerelease=(--prerelease) ;; esac
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "WarGuardian Agent $VERSION" --notes-file "$RUNNER_TEMP/release-notes.md" \
+            "${prerelease[@]}" "${files[@]}"
