@@ -1,0 +1,24 @@
+{
+  "name": "warguardian-agent",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Connects game servers on a host to WarGuardian.",
+  "license": "PolyForm-Shield-1.0.0",
+  "type": "module",
+  "engines": {
+    "node": "^24.22.1"
+  },
+  "scripts": {
+    "build": "node build/build-agent.mjs",
+    "test": "tsx --test --test-concurrency=1 \"test/*.test.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "postject": "1.0.0-alpha.6",
+    "tsx": "4.23.13",
+    "typescript": "5.9.3",
+    "vite": "8.3.4",
+    "zod": "4.6.7"
+  }
+}

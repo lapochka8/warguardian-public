@@ -10,4 +10,4 @@ Public documentation corrections and feature suggestions are welcome.
 - Keep the service continuity statement consistent with the [published policy](https://warguardian.app/legal). Do not narrow its coverage of WarGuardian-owned code and models.
 - Describe a specific workflow or useful fact. Do not add keyword lists, fabricated reviews, unsupported competitor claims or promises of search placement.
 
-This repository accepts documentation contributions. It does not provide the hosted application’s source code or a license to that application.
+This repository accepts documentation contributions. The WarGuardian Agent source is published here under the [PolyForm Shield License 1.0.0](LICENSE). The repository does not provide the hosted application’s source code or a license to that application.
