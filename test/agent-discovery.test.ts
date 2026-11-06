@@ -25,6 +25,7 @@ import {
   serverKind,
   splitWindowsCommandLine,
   windowsFileSecurity,
+  windowsPowerShell,
   writeDiscoveryFile,
 } from '../src/discovery';
 import { stat } from 'node:fs/promises';
@@ -648,6 +649,63 @@ void test(
       // The real reader returns this account as the owner of its own file.
       const real = await windowsFileSecurity(file);
       assert.equal(real?.owner, sid);
+    });
+  },
+);
+
+void test('discovery runs Windows PowerShell from System32 without the caller module path', () => {
+  const environment = (values: Record<string, string>) =>
+    ({ NODE_ENV: 'test', ...values }) as NodeJS.ProcessEnv;
+  const { command, env } = windowsPowerShell(
+    environment({
+      SystemRoot: 'C:\\WINDOWS',
+      PSModulePath: 'C:\\Program Files\\PowerShell\\7\\Modules',
+      psmodulepath: 'C:\\other',
+      Path: 'C:\\Program Files\\Git\\cmd',
+    }),
+  );
+  assert.equal(
+    command,
+    'C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+  );
+  assert.deepEqual(env, {
+    NODE_ENV: 'test',
+    SystemRoot: 'C:\\WINDOWS',
+    Path: 'C:\\Program Files\\Git\\cmd',
+  });
+  assert.equal(
+    windowsPowerShell(environment({})).command,
+    'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+  );
+});
+
+void test(
+  'file owners are read when a PowerShell 7 module path is set',
+  { skip: process.platform !== 'win32' && 'needs Windows PowerShell' },
+  async () => {
+    await withDirectory(async (directory) => {
+      // A module of the same name that cannot load, found before the system one.
+      const modules = join(directory, 'modules');
+      const securityModule = join(modules, 'Microsoft.PowerShell.Security');
+      await mkdir(securityModule, { recursive: true });
+      await writeFile(
+        join(securityModule, 'Microsoft.PowerShell.Security.psd1'),
+        "@{ ModuleVersion = '99.0.0'; RootModule = 'broken.psm1'; CmdletsToExport = @('Get-Acl') }\n",
+      );
+      await writeFile(
+        join(securityModule, 'broken.psm1'),
+        "throw 'not loadable'\n",
+      );
+      const file = join(directory, 'BEServer_x64.cfg');
+      await writeFile(file, 'RConPort 2305\n');
+      const previous = process.env.PSModulePath;
+      process.env.PSModulePath = modules;
+      try {
+        assert.equal((await windowsFileSecurity(file))?.owner, sid);
+      } finally {
+        if (previous === undefined) delete process.env.PSModulePath;
+        else process.env.PSModulePath = previous;
+      }
     });
   },
 );
