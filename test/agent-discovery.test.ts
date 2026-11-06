@@ -64,6 +64,22 @@ const sid =
         ),
       )?.[1] ?? null)
     : null;
+/**
+ * The owners a new file of this process may have. Under an elevated
+ * administrator (the high integrity level), Windows can give it to the
+ * Administrators group instead of the account.
+ */
+const newFileOwners =
+  process.platform === 'win32' &&
+  /"S-1-16-12288"/.test(
+    execFileSync(
+      join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'whoami.exe'),
+      ['/groups', '/fo', 'csv', '/nh'],
+      { encoding: 'utf8', windowsHide: true },
+    ),
+  )
+    ? [sid, 'S-1-5-32-544']
+    : [sid];
 
 async function withDirectory<T>(run: (directory: string) => Promise<T>) {
   // The real path, so paths compare equal to the resolved paths discovery reports.
@@ -646,9 +662,9 @@ void test(
         async () => null,
       );
       assert.match(unreadable?.problem ?? '', /owner of .* cannot be read/);
-      // The real reader returns this account as the owner of its own file.
+      // The real reader returns the owner of this process's own file.
       const real = await windowsFileSecurity(file);
-      assert.equal(real?.owner, sid);
+      assert.ok(newFileOwners.includes(real?.owner ?? ''), real?.owner);
     });
   },
 );
@@ -701,7 +717,8 @@ void test(
       const previous = process.env.PSModulePath;
       process.env.PSModulePath = modules;
       try {
-        assert.equal((await windowsFileSecurity(file))?.owner, sid);
+        const owner = (await windowsFileSecurity(file))?.owner;
+        assert.ok(newFileOwners.includes(owner ?? ''), owner);
       } finally {
         if (previous === undefined) delete process.env.PSModulePath;
         else process.env.PSModulePath = previous;
