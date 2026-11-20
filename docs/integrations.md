@@ -1,48 +1,62 @@
 # Game integration status
 
-WarGuardian's publicly available game integration is WARDOGS. The other games below are expansion targets, not currently supported connections. This page describes product scope, rather than an installation guide for unreleased integrations.
+WarGuardian is publicly available for WARDOGS. Arma Reforger, Arma 3 and DayZ are available in beta. The other games below are planned, not currently supported connections.
 
-| Game | Status | Planned focus |
+| Game | Status | Focus |
 | --- | --- | --- |
-| WARDOGS | Publicly available | RCON server administration, moderation and community operations |
-| Arma Reforger | Planned | Reforger server administration, scenarios, mods and player moderation |
-| Squad | Planned | Squad administration, layers, factions and player moderation |
-| Arma 3 | Planned | BattlEye RCON administration, missions and player moderation |
+| WARDOGS | Available | RCON server administration, moderation and community operations |
+| Arma Reforger | Beta | RCON moderation and server status. Game host control, mods, backups and updates with the WarGuardian Agent |
+| Arma 3 | Beta | BattlEye RCON moderation, live players, chat and bans. Steam checks, Workshop mods and game host control with the WarGuardian Agent |
+| DayZ | Beta | BattlEye RCON moderation, live players, chat and bans. Steam checks, Workshop mods and game host control with the WarGuardian Agent |
+| Squad | Planned | Player moderation, layers, factions and supported rotation actions |
+| Hell Let Loose | Planned | Map rotation, player lists, messages, kicks and bans |
+| Rust | Planned | Player lists, messages, kicks, bans and supported server commands |
 
-The planned integrations are not currently available on the public service. Release dates have not been announced. Features will depend on each game’s supported interfaces and permissions.
+The planned integrations are not currently available on the public service. Release dates have not been announced. Features will depend on the supported interfaces and permissions of each game.
 
-Support for one game does not imply that its commands, player identities or host controls work with another game. Detailed combat records require an appropriate event source; RCON access alone does not establish combat-statistics coverage.
+Support for one game does not imply that its commands, player identities or host controls work with another game. Detailed combat records require an appropriate event source. RCON access alone does not establish combat-statistics coverage.
 
-## WARDOGS — available
+## WARDOGS: available
 
 The hosted WARDOGS RCON panel combines player moderation, community and server staff access, supported map/match controls, automation, private shared lists and player evidence review. A configured event feed is required for feed-based combat history. Individual controls depend on game capabilities and staff permissions.
 
+A WARDOGS server connects by RCON and does not use the WarGuardian Agent.
+
 Start with the [WARDOGS RCON guide](https://warguardian.app/wardogs-rcon) and [connection instructions](https://warguardian.app/wardogs-rcon/setup). Obtain credentials privately from your hosting provider.
 
-## Arma Reforger — planned
+## Arma Reforger: beta
 
-The planned Reforger integration targets its server administration, supported scenarios, mod profiles and player moderation. Game administration and host operations are distinct: changing installed mods or restarting a process requires suitable hosting access, beyond a generic RCON connection.
+Moderation and server status need only RCON. Game host control, mods, backups and updates need the WarGuardian Agent on a Linux host that you control. Rented game servers usually give RCON access only.
 
-Reforger's game identities, cross-platform behavior and event sources need their own support. Arma 3 setup instructions must not be assumed to work for Reforger. No public Reforger onboarding or launch date is offered yet.
+Choose Arma Reforger when you add the server. [Arma Reforger guide](https://warguardian.app/arma-reforger-rcon).
 
-## Squad — planned
+## Arma 3 and DayZ: beta
 
-The planned Squad RCON integration targets player moderation, layers, factions and supported server operations. Squad's Source RCON variant, game commands and events require Squad-specific support. Generic RCON compatibility does not establish working layer rotation or complete player history.
+Live players, chat, bans and join screening need only BattlEye RCON. The WarGuardian Agent adds Steam checks, Workshop mods and game host control: start, stop and restart, the configuration file, logs and backups. It also connects a host that keeps its RCON port closed.
 
-No public Squad onboarding or launch date is offered yet. Keep your existing management workflow until a supported migration path is announced.
+Steam identities, BattlEye GUIDs and temporary player slots have different meanings. Arma 3 and DayZ are separate integrations from Arma Reforger.
 
-## Arma 3 — planned
+[Arma 3 guide](https://warguardian.app/arma-3-rcon) · [DayZ guide](https://warguardian.app/dayz-rcon)
 
-The planned Arma 3 integration targets BattlEye RCON administration, mission management and player moderation. Steam identities, BattlEye GUIDs and temporary player slots have different meanings. Mission files, mod presets and process controls need separately supported host access.
+## WarGuardian Agent
 
-No public Arma 3 onboarding or launch date is offered yet. It is a separate integration from Arma Reforger.
+The WarGuardian Agent runs on the game host and connects out to WarGuardian over encrypted HTTPS, so the host opens no port. It is used with Arma Reforger, Arma 3 and DayZ. Its source is in this repository. See the [README](../README.md).
+
+## Squad, Hell Let Loose and Rust: planned
+
+Servers of these games cannot currently be connected. Each game needs its own support for its RCON variant, commands, identities and events. Generic RCON compatibility does not establish working rotation controls or complete player history.
+
+No public onboarding or launch date is offered yet. Keep your existing management workflow until a supported migration path is announced.
+
+[Squad](https://warguardian.app/squad-rcon) · [Hell Let Loose](https://warguardian.app/hell-let-loose-rcon) · [Rust](https://warguardian.app/rust-rcon)
 
 ## Connected services
 
 | Offering | Current status |
 | --- | --- |
-| Hosted WARDOGS panel | Available; current plans and beta terms apply |
-| Existing private shared-list workflows | Available within the hosted product's permissions and scope |
+| Hosted WARDOGS panel | Available. Current plans and beta terms apply |
+| Arma Reforger, Arma 3 and DayZ | Beta. Current plans and beta terms apply |
+| Existing private shared-list workflows | Available within the permissions and scope of the hosted product |
 
 A roadmap entry is not a promise that all features or games will be released together.
 

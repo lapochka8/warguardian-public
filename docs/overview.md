@@ -2,7 +2,7 @@
 
 ## What is WarGuardian?
 
-WarGuardian is a hosted WARDOGS RCON panel for community server administrators. It combines server controls with player moderation, staff access, shared ban lists and evidence review.
+WarGuardian is a hosted RCON panel for community server administrators. It supports WARDOGS, and Arma Reforger, Arma 3 and DayZ in beta. It combines server controls with player moderation, staff access, shared ban lists and evidence review.
 
 The [current feature catalog](features.md) also covers reports and tickets, Steam context, watchlists, map controls, priority access, automation, public pages and authorized integrations.
 
@@ -12,7 +12,7 @@ No. Your dedicated game server stays with its existing hosting provider. WarGuar
 
 ## How do I connect a WARDOGS server?
 
-Obtain the RCON address, port and password from your hosting provider, then follow the [official WarGuardian setup guide](https://warguardian.app/wardogs-rcon/setup). Keep connection credentials private.
+Obtain the RCON address, port and password from your hosting provider, then follow the [official WarGuardian setup guide](https://warguardian.app/wardogs-rcon/setup). Keep connection credentials private. A WARDOGS server does not use the WarGuardian Agent.
 
 ## Do all staff need the RCON password?
 
@@ -24,7 +24,7 @@ No. Player evidence reviews support staff investigation. Review the available ev
 
 ## Which games are available?
 
-WARDOGS is publicly supported. Arma Reforger, Squad and Arma 3 integrations are planned. They are not currently available on the public service. [Integration details](integrations.md).
+WARDOGS is publicly supported. Arma Reforger, Arma 3 and DayZ are available in beta. Squad, Hell Let Loose and Rust are planned and cannot currently be connected. [Integration details](integrations.md).
 
 ## Where are current prices and support?
 
@@ -42,7 +42,7 @@ Check source availability before assuming that a connected server has complete c
 
 ## Can WarGuardian run several servers?
 
-Yes. Communities can administer multiple supported WARDOGS servers with access scoped to the relevant communities and servers. Server allowances and beta terms depend on the current plan. Planned support for other games is not yet public mixed-game availability.
+Yes. Communities can administer multiple servers of the supported games with access scoped to the relevant communities and servers. Server allowances and beta terms depend on the current plan.
 
 ## Is WarGuardian open source?
 
