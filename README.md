@@ -13,9 +13,11 @@ WarGuardian, but not in a competing product.
 
 | Game          | Profile         | Hosts          |
 | ------------- | --------------- | -------------- |
-| WARDOGS       | `wardogs`       | Linux, Windows |
 | Arma Reforger | `arma-reforger` | Linux          |
 | Arma 3, DayZ  | `battleye`      | Linux, Windows |
+
+A WARDOGS server connects to WarGuardian by RCON and does not use the
+Agent.
 
 ## What the Agent does
 
