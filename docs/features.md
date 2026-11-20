@@ -1,8 +1,8 @@
 # Current WarGuardian features
 
-WarGuardian is a hosted WARDOGS RCON panel for community server administration, moderation and player evidence review. This catalog describes current product workflows. A feature's availability depends on the connected game build, staff permissions, enabled integrations and applicable plan terms.
+WarGuardian is a hosted RCON panel for community server administration, moderation and player evidence review. This catalog describes current product workflows for WARDOGS. A feature's availability depends on the connected game build, staff permissions, enabled integrations and applicable plan terms.
 
-For other games, see [integration status](integrations.md). Arma Reforger, Squad and Arma 3 remain planned public integrations.
+For other games, see [integration status](integrations.md). Arma Reforger, Arma 3 and DayZ are available in beta.
 
 ## Multi-server dashboard and live players
 
