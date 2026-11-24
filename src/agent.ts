@@ -186,7 +186,9 @@ export function createServerLoop(options: ServerLoopOptions) {
       return { worked: true, retryAfterMs: 0 };
     }
     const command = parsed.data;
-    const at = now();
+    // The panel sets the expiry on its own clock, so judge it on that clock.
+    // A host clock a few seconds off would otherwise refuse every command.
+    const at = now() + options.client.panelAheadMs();
     if (
       command.expiresAt <= at ||
       command.expiresAt > at + agentCommandMaxLifetimeMs

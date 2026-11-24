@@ -11,10 +11,11 @@ WarGuardian, but not in a competing product.
 
 ## Supported games
 
-| Game          | Profile         | Hosts          |
-| ------------- | --------------- | -------------- |
-| Arma Reforger | `arma-reforger` | Linux          |
-| Arma 3, DayZ  | `battleye`      | Linux, Windows |
+| Game                       | Profile         | Hosts          |
+| -------------------------- | --------------- | -------------- |
+| Arma Reforger (Beta)       | `arma-reforger` | Linux          |
+| Arma 3 (Beta), DayZ (Beta) | `battleye`      | Linux, Windows |
+| Rust (Beta)                | `rust`          | Linux, Windows |
 
 A WARDOGS server connects to WarGuardian by RCON and does not use the
 Agent.
@@ -27,11 +28,16 @@ Agent.
   server process, or from its game folder. The file must belong to the
   account that runs the game, and no link may lead to it. Setup prints the
   folder it chose.
+- For Rust, takes the RCON port from the launch line or from
+  `server/<identity>/cfg/server.cfg` of the server process. The server needs
+  `+rcon.web 1`.
 - Reads the RCON password from the game configuration on every login. The
-  password never leaves the host.
+  password never leaves the host. A Rust password set only on the launch line
+  is kept in the Agent settings on this host.
 - Runs only the operations WarGuardian defines: reading players and bans,
   kicking, messaging, banning and unbanning. It builds every command line
-  itself.
+  itself. On Rust it also sends the server tools of WarGuardian, such as
+  plugin reloads, permissions and server settings, each from a fixed form.
 - Checks the target player and sends the command in the same RCON login.
 - Authenticates every request with the server secret and checks every
   response.
@@ -46,11 +52,11 @@ Agent.
 
 - It accepts no raw RCON command and never sends `#shutdown`.
 - It opens no listening port and forwards no other traffic.
-- It sends no file, log or password to WarGuardian. From Arma 3 and DayZ
-  server logs (`.rpt`) it sends only the name and Steam ID of each joining
-  player.
-- It does not change game configuration, except through the Arma Reforger
-  host tools that you use in WarGuardian.
+- It sends no password to WarGuardian. From Arma 3 and DayZ server logs
+  (`.rpt`) it sends only the name and Steam ID of each joining player.
+  Files and logs leave the host only through the game host tools below.
+- It does not change game configuration, except through the Arma Reforger,
+  Arma 3, DayZ and Rust host tools that you use in WarGuardian.
 - The installer changes no folder permissions and no file other than the
   RCON files of the servers that you set up.
 
@@ -170,6 +176,113 @@ ExecStart=/opt/warguardian-agent/current/warguardian-agent run
 Its environment file keeps working unchanged. The installer reports an Arma
 Reforger code and leaves the shared service stopped when it has no other
 server.
+
+## Arma 3 and DayZ hosts
+
+The game host tools are off until you write a host settings file for the
+server. Without it, the Agent manages RCON only.
+
+| Item          | Linux                                  | Windows                                          |
+| ------------- | -------------------------------------- | ------------------------------------------------ |
+| Host settings | `/etc/warguardian/hosts/<server>.json` | `C:\ProgramData\WarGuardian\hosts\<server>.json` |
+| Host state    | `/var/lib/warguardian-agent/hosts/`    | `C:\ProgramData\WarGuardian\state\hosts\`        |
+
+The file names the server executable, the server folder, the config file,
+the profiles folder and the game port. To download Workshop mods, it also
+names SteamCMD, a Steam account and a Workshop folder. Sign in to SteamCMD
+with that account once on the host. The Agent never stores or sends a Steam
+password.
+
+With the file in place, WarGuardian can start, stop and restart the server
+that it started. It can edit the config file, read the logs in the profiles
+folder and keep backups of that folder. Passwords in the config file and in
+the logs are hidden before they leave the host. The Agent links each
+Workshop mod into the server folder as `@<id>` and copies its `.bikey`
+files into `keys`.
+
+The Agent account needs write access to those folders and must be able to
+run the executable and SteamCMD. The installer does not grant this access.
+
+`launchArguments` adds launch parameters after the ones the Agent sets. The
+Agent sets `-config`, `-profiles`, `-port`, `-mod` and `-serverMod` itself and
+refuses them in this list. Each entry is one argument and never passes
+through a shell.
+
+```json
+{
+  "executable": "C:\\servers\\arma3\\arma3server_x64.exe",
+  "serverDirectory": "C:\\servers\\arma3",
+  "config": "C:\\servers\\arma3\\live\\server.cfg",
+  "profiles": "C:\\servers\\arma3\\live\\profiles",
+  "port": 2302,
+  "steamcmd": "C:\\steamcmd\\steamcmd.exe",
+  "steamUser": "your_steam_account",
+  "workshopDirectory": "C:\\servers\\workshop",
+  "launchArguments": [
+    "-cfg=C:\\servers\\arma3\\live\\basic.cfg",
+    "-bepath=C:\\servers\\arma3\\live\\battleye"
+  ]
+}
+```
+
+Arma 3 and DayZ Workshop items download only for a Steam account that owns
+the game. Sign in once in a terminal on the host with
+`steamcmd +login <account>`, and enter the password and the Steam Guard code
+there. SteamCMD keeps the sign-in in its own folder. When it expires, a
+download fails with "SteamCMD has no saved login for <account>".
+
+A server that stops within 20 seconds of a start fails the job. After an
+apply, the mod list before it is kept, and **Revert to previous mods** links
+that list again and restarts the server if it was running.
+
+## Rust hosts
+
+The game host tools are off until you write a host settings file for the
+server, in the `hosts` folder named above. Without it, the Agent manages RCON
+only.
+
+```json
+{
+  "executable": "/srv/rust/RustDedicated",
+  "serverDirectory": "/srv/rust",
+  "identity": "main",
+  "steamcmd": "/usr/games/steamcmd",
+  "seed": 12345,
+  "autoRestart": true,
+  "launchArguments": [
+    "+server.port 28015",
+    "+rcon.port 28016",
+    "+rcon.web 1",
+    "+server.hostname My server",
+    "+server.maxplayers 100",
+    "+server.worldsize 4000"
+  ]
+}
+```
+
+The Agent sets `+server.identity`, `+server.seed` and `-logfile` itself. Keep
+`rcon.password` in `server.cfg` and not in this file. Each entry of
+`launchArguments` is one parameter and never passes through a shell.
+
+With the file in place, WarGuardian can start, stop and restart the server
+that it started. A stop sends `quit` first, so the world is saved. It can
+update the game with SteamCMD, edit `server.cfg` and read the server logs. The
+RCON password in `server.cfg` is hidden before the file leaves the host.
+
+WarGuardian can also keep backups of the save folder and the plugin settings,
+and wipe the map or the map and the player data. A wipe makes a backup first.
+
+For plugins, the Agent installs Oxide or Carbon from the release pages of
+those projects. It downloads free plugins from uMod, takes plugin files that
+staff upload in WarGuardian, and edits plugin settings files. It keeps the
+earlier file of each plugin, so an update can be rolled back.
+
+With `autoRestart` the Agent starts the server again when it ends by itself,
+at most 3 times in 10 minutes. The Agent never stops a server that it did not
+start.
+
+The Agent account needs write access to the server folder and must be able to
+run the executable and SteamCMD. The installer does not grant this access.
 
 ## Files
 

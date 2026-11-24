@@ -33,12 +33,12 @@ export type ProcessEntry = {
 /**
  * A discovered server. `summary` goes to WarGuardian at enrollment. `id`,
  * `rconConfigured`, `rconFiles` and `settings` stay on this host.
- * Discovery offers Arma 3, DayZ and Arma Reforger. Squad family servers are
- * set up by hand.
+ * Discovery offers Arma 3, DayZ, Arma Reforger and Rust. Squad family
+ * servers are set up by hand.
  */
 export type DiscoveredInstance = {
   id: string;
-  profile: 'battleye' | 'arma-reforger';
+  profile: 'battleye' | 'arma-reforger' | 'rust';
   summary: DiscoveredServer;
   /** True when the game configuration holds a usable RCON password. */
   rconConfigured: boolean;
@@ -66,7 +66,7 @@ export const discoveredInstances = z
   .array(
     z.object({
       id: z.string().regex(/^[a-z0-9-]{1,64}$/),
-      profile: z.enum(['battleye', 'arma-reforger']),
+      profile: z.enum(['battleye', 'arma-reforger', 'rust']),
       summary: discoveredServer,
       rconConfigured: z.boolean(),
       problem: z.string().max(1_000).optional(),
@@ -129,7 +129,8 @@ function ports(values: {
 
 type KnownServer =
   | { profile: 'battleye'; game: 'arma3' | 'dayz' }
-  | { profile: 'arma-reforger'; game: 'arma-reforger' };
+  | { profile: 'arma-reforger'; game: 'arma-reforger' }
+  | { profile: 'rust'; game: 'rust' };
 
 /** Server executables by base name, without extension or Unreal build suffix. */
 const knownServers: Record<string, KnownServer> = {
@@ -138,6 +139,7 @@ const knownServers: Record<string, KnownServer> = {
   dayzserver: { profile: 'battleye', game: 'dayz' },
   dayzserver_x64: { profile: 'battleye', game: 'dayz' },
   armareforgerserver: { profile: 'arma-reforger', game: 'arma-reforger' },
+  rustdedicated: { profile: 'rust', game: 'rust' },
 };
 
 function pathApi(platform: NodeJS.Platform) {
@@ -295,7 +297,7 @@ export function windowsPowerShell(env: NodeJS.ProcessEnv = process.env) {
 }
 
 const windowsQuery =
-  "Get-CimInstance Win32_Process | Where-Object { $_.Name -match '^(arma3server|dayzserver|armareforgerserver)' } | Select-Object ProcessId,ExecutablePath,CommandLine,@{n='OwnerSid';e={(Invoke-CimMethod -InputObject $_ -MethodName GetOwnerSid -ErrorAction SilentlyContinue).Sid}} | ConvertTo-Json -Compress";
+  "Get-CimInstance Win32_Process | Where-Object { $_.Name -match '^(arma3server|dayzserver|armareforgerserver|rustdedicated)' } | Select-Object ProcessId,ExecutablePath,CommandLine,@{n='OwnerSid';e={(Invoke-CimMethod -InputObject $_ -MethodName GetOwnerSid -ErrorAction SilentlyContinue).Sid}} | ConvertTo-Json -Compress";
 
 /** Windows: server processes from `Win32_Process`. */
 export async function windowsProcesses(): Promise<ProcessEntry[]> {
@@ -622,6 +624,74 @@ export async function inspectProcess(
         game: kind.game,
         ...(file ? { battleyeConfig: path.dirname(file) } : {}),
         ...(profiles && !rejection ? { logDirectory: profiles } : {}),
+      },
+    };
+  }
+
+  if (kind.profile === 'rust') {
+    // Rust takes its settings from the launch line (`+rcon.port 28016`) or
+    // from `server/<identity>/cfg/server.cfg`. The password is used from the
+    // file when it is there, so a later change of it needs no new setup.
+    const identity = argumentValue(entry.argv, '+server.identity');
+    const cfg =
+      gameFolder && identity && /^[A-Za-z0-9_.-]{1,64}$/.test(identity)
+        ? path.join(gameFolder, 'server', identity, 'cfg', 'server.cfg')
+        : null;
+    let file: string | null = null;
+    let problem: string | undefined;
+    let text = '';
+    if (cfg && (await fs.stat(cfg).catch(() => null))?.isFile()) {
+      const checked = await checkGameFile(cfg, entry, platform, readSecurity);
+      if ('problem' in checked) problem = checked.problem;
+      else
+        try {
+          text = await readText(checked.real);
+          file = checked.real;
+        } catch (error) {
+          problem = describeProblem(error);
+        }
+    }
+    const listed = (name: string) => {
+      const match = new RegExp(
+        `^\\s*${name.replace('.', '\\.')}\\s+(?:"([^"]*)"|(\\S+))\\s*$`,
+        'im',
+      ).exec(text);
+      return match ? (match[1] ?? match[2] ?? null) : null;
+    };
+    const filePassword = listed('rcon.password') ?? undefined;
+    const linePassword =
+      argumentValue(entry.argv, '+rcon.password') ?? undefined;
+    const fromFile = !!file && passwordFound(filePassword);
+    const rconPort =
+      port(argumentValue(entry.argv, '+rcon.port')) ??
+      port(listed('rcon.port')) ??
+      28016;
+    const gamePort = port(argumentValue(entry.argv, '+server.port')) ?? 28015;
+    return {
+      id: stableId(
+        'rust',
+        `${gameFolder ?? executablePath ?? entry.pid}/${identity ?? ''}`,
+      ),
+      profile: 'rust',
+      summary: {
+        gameId: 'rust',
+        ...ports({
+          rconPort,
+          gamePort,
+          queryPort: port(argumentValue(entry.argv, '+server.queryport')),
+        }),
+      },
+      rconConfigured: fromFile || passwordFound(linePassword),
+      ...(problem ? { problem } : {}),
+      ...(fromFile ? { rconFiles: [file!] } : {}),
+      settings: {
+        game: 'rust',
+        rconPort,
+        ...(fromFile
+          ? { serverConfig: file! }
+          : passwordFound(linePassword)
+            ? { rconPassword: linePassword }
+            : {}),
       },
     };
   }

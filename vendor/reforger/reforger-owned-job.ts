@@ -1,27 +1,14 @@
 import { spawn } from 'node:child_process';
-import { promises as fs } from 'node:fs';
+import {
+  createLinuxReforgerPlatform,
+  type ReforgerHostPlatform,
+} from './reforger-platform';
+
+const linux = createLinuxReforgerPlatform();
 
 /** An updater is a separate owned process group, never the game's group. */
-export async function ownedReforgerJobActive(id: string, group?: number) {
-  if (process.platform !== 'linux') return false;
-  const marker = Buffer.from(`WARGUARDIAN_UPDATER_JOB=${id}\0`);
-  for (const pid of (await fs.readdir('/proc')).filter((value) =>
-    /^\d+$/.test(value),
-  )) {
-    try {
-      const raw = await fs.readFile(`/proc/${pid}/stat`, 'utf8'),
-        fields = raw.slice(raw.lastIndexOf(')') + 2).split(' ');
-      if (fields[0] === 'Z') continue;
-      if (group && Number(fields[2]) === group && Number(fields[3]) === group)
-        return true;
-      if ((await fs.readFile(`/proc/${pid}/environ`)).includes(marker))
-        return true;
-    } catch {
-      /* Other processes can exit or belong to another service account. */
-    }
-  }
-  return false;
-}
+export const ownedReforgerJobActive = (id: string, group?: number) =>
+  linux.updater.active(id, group);
 export async function runReforgerOwnedUpdate(input: {
   executable: string;
   installation: string;
@@ -30,9 +17,11 @@ export async function runReforgerOwnedUpdate(input: {
   onSpawn: (group: number) => Promise<void>;
   output: (text: string) => Promise<void>;
   timeoutMs?: number;
+  platform?: ReforgerHostPlatform;
 }) {
-  if (process.platform !== 'linux')
+  if (!input.platform && process.platform !== 'linux')
     throw new Error('Owned update groups require Linux.');
+  const updater = (input.platform ?? linux).updater;
   if (input.signal.aborted)
     throw new Error('Update cancelled before dispatch.');
   const child = spawn(
@@ -48,7 +37,7 @@ export async function runReforgerOwnedUpdate(input: {
       '+quit',
     ],
     {
-      detached: true,
+      detached: updater.detached,
       windowsHide: true,
       shell: false,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -69,18 +58,12 @@ export async function runReforgerOwnedUpdate(input: {
     child.once('error', reject);
   });
   const group = child.pid!;
-  const signal = (value: NodeJS.Signals) => {
-    try {
-      process.kill(-group, value);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error;
-    }
-  };
+  await updater.track?.(group).catch(() => {});
   const stop = () => {
     if (stopping) return;
     stopping = true;
-    signal('SIGTERM');
-    force = setTimeout(() => signal('SIGKILL'), 10000);
+    updater.stop(group, false);
+    force = setTimeout(() => updater.stop(group, true), 10000);
   };
   const timer = setTimeout(stop, input.timeoutMs ?? 1800000);
   input.signal.addEventListener('abort', stop, { once: true });
@@ -94,7 +77,7 @@ export async function runReforgerOwnedUpdate(input: {
     await input.onSpawn(group);
     if (input.signal.aborted) stop();
     await exit;
-    while (await ownedReforgerJobActive(input.id, group))
+    while (await updater.active(input.id, group))
       await new Promise((resolve) => setTimeout(resolve, 100));
     if (stopping || code !== 0)
       throw new Error(
@@ -104,7 +87,7 @@ export async function runReforgerOwnedUpdate(input: {
   } catch (error) {
     stop();
     await exit;
-    while (await ownedReforgerJobActive(input.id, group))
+    while (await updater.active(input.id, group))
       await new Promise((resolve) => setTimeout(resolve, 100));
     throw error;
   } finally {

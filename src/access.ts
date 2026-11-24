@@ -8,6 +8,7 @@ import { battleyeFileName } from './games/game-config';
 export type AccessEntry = { kind: 'file' | 'folder'; path: string };
 
 const squadFileName = /^rcon\.cfg$/i;
+const rustFileName = /^server\.cfg$/i;
 
 /**
  * True for a path that a privileged installer may place on an `icacls` or
@@ -97,6 +98,8 @@ export async function rconAccessList(
   for (const server of config.servers) {
     if (server.profile === 'squad-family' && server.rconConfig)
       await add('file', server.rconConfig, squadFileName);
+    if (server.profile === 'rust' && server.serverConfig)
+      await add('file', server.serverConfig, rustFileName);
     if (server.profile !== 'battleye' || !server.battleyeConfig) continue;
     const target = server.battleyeConfig;
     const stat = await fs.stat(target).catch(() => null);

@@ -24,6 +24,7 @@ import {
   nativeOperationResultSchema,
   nativeRelayPaths,
   squadOperationSchema,
+  rustOperationSchema,
   type AgentCommand,
   type AgentDiscoveredServer,
   type AgentEnrollRequest,
@@ -106,6 +107,7 @@ export const agentGameId = z.enum(sharedAgentGameIds);
 export type AgentGameId = z.infer<typeof agentGameId>;
 export const battleyeGameIds = ['arma3', 'dayz'] as const;
 export const squadFamilyGameIds = ['squad44', 'beyond-the-wire'] as const;
+export const rustGameIds = ['rust'] as const;
 
 export const agentTargetIds = agentPlatforms;
 export const agentTargetId = agentPlatformSchema;
@@ -128,6 +130,8 @@ export const battleyeOperation = battleyeOperationSchema;
 export type BattlEyeOperation = z.infer<typeof battleyeOperationSchema>;
 export const squadOperation = squadOperationSchema;
 export type SquadOperation = z.infer<typeof squadOperationSchema>;
+export const rustOperation = rustOperationSchema;
+export type RustOperation = z.infer<typeof rustOperationSchema>;
 export const nativeOperationResult = nativeOperationResultSchema;
 export const nativeEventFeed = nativeEventFeedSchema;
 export type NativeEventFeed = z.infer<typeof nativeEventFeedSchema>;

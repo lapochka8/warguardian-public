@@ -1,6 +1,6 @@
 # Game integration status
 
-WarGuardian is publicly available for WARDOGS. Arma Reforger, Arma 3 and DayZ are available in beta. The other games below are planned, not currently supported connections.
+WarGuardian is publicly available for WARDOGS. Arma Reforger, Arma 3, DayZ and Rust are available in beta. The other games below are planned, not currently supported connections.
 
 | Game | Status | Focus |
 | --- | --- | --- |
@@ -8,9 +8,9 @@ WarGuardian is publicly available for WARDOGS. Arma Reforger, Arma 3 and DayZ ar
 | Arma Reforger | Beta | RCON moderation and server status. Game host control, mods, backups and updates with the WarGuardian Agent |
 | Arma 3 | Beta | BattlEye RCON moderation, live players, chat and bans. Steam checks, Workshop mods and game host control with the WarGuardian Agent |
 | DayZ | Beta | BattlEye RCON moderation, live players, chat and bans. Steam checks, Workshop mods and game host control with the WarGuardian Agent |
+| Rust | Beta | WebRCON moderation, live players with teams, chat, bans and server events. Plugins, permissions and server settings, and game host control with the WarGuardian Agent |
 | Squad | Planned | Player moderation, layers, factions and supported rotation actions |
 | Hell Let Loose | Planned | Map rotation, player lists, messages, kicks and bans |
-| Rust | Planned | Player lists, messages, kicks, bans and supported server commands |
 
 The planned integrations are not currently available on the public service. Release dates have not been announced. Features will depend on the supported interfaces and permissions of each game.
 
@@ -38,17 +38,25 @@ Steam identities, BattlEye GUIDs and temporary player slots have different meani
 
 [Arma 3 guide](https://warguardian.app/arma-3-rcon) · [DayZ guide](https://warguardian.app/dayz-rcon)
 
+## Rust: beta
+
+Live players with teams, chat, bans, server events and the anti-cheat feed need only WebRCON (`+rcon.web 1`). The WarGuardian Agent connects a host that keeps its RCON port closed and adds game host control.
+
+Plugin tools depend on what the server has installed.
+
+[Rust guide](https://warguardian.app/rust-rcon) · [RCON setup](https://warguardian.app/guides/rust-rcon-setup)
+
 ## WarGuardian Agent
 
-The WarGuardian Agent runs on the game host and connects out to WarGuardian over encrypted HTTPS, so the host opens no port. It is used with Arma Reforger, Arma 3 and DayZ. Its source is in this repository. See the [README](../README.md).
+The WarGuardian Agent runs on the game host and connects out to WarGuardian over encrypted HTTPS, so the host opens no port. It is used with Arma Reforger, Arma 3, DayZ and Rust. Its source is in this repository. See the [README](../README.md).
 
-## Squad, Hell Let Loose and Rust: planned
+## Squad and Hell Let Loose: planned
 
 Servers of these games cannot currently be connected. Each game needs its own support for its RCON variant, commands, identities and events. Generic RCON compatibility does not establish working rotation controls or complete player history.
 
 No public onboarding or launch date is offered yet. Keep your existing management workflow until a supported migration path is announced.
 
-[Squad](https://warguardian.app/squad-rcon) · [Hell Let Loose](https://warguardian.app/hell-let-loose-rcon) · [Rust](https://warguardian.app/rust-rcon)
+[Squad](https://warguardian.app/squad-rcon) · [Hell Let Loose](https://warguardian.app/hell-let-loose-rcon)
 
 ## Connected services
 

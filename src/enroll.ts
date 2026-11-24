@@ -1,5 +1,5 @@
 import { hostname } from 'node:os';
-import { posix } from 'node:path';
+import { posix, win32 } from 'node:path';
 import { boundedBody } from './client';
 import {
   describeIssues,
@@ -101,6 +101,7 @@ const sharedServiceProfiles: ReadonlySet<string> = new Set([
   'wardogs',
   'battleye',
   'squad-family',
+  'rust',
 ]);
 
 function entryFor(
@@ -135,11 +136,10 @@ function entryFor(
         found.executable && found.config && found.profile
           ? {
               ...found,
-              stateDirectory: posix.join(
-                options.stateDirectory,
-                'reforger',
-                response.serverId,
-              ),
+              stateDirectory: (options.stateDirectory.includes('\\')
+                ? win32
+                : posix
+              ).join(options.stateDirectory, 'reforger', response.serverId),
             }
           : undefined;
       if (!host) missing.push('host');
@@ -161,6 +161,19 @@ function entryFor(
       const file =
         response.profile === 'battleye' ? 'battleyeConfig' : 'rconConfig';
       if (!candidate[file]) missing.push(file);
+      break;
+    }
+    case 'rust': {
+      candidate = {
+        ...base,
+        profile: 'rust',
+        ...instance?.settings,
+        game: response.gameId,
+      };
+      if (!candidate['rconPort'] && !candidate['serverConfig'])
+        missing.push('rconPort');
+      if (!candidate['rconPassword'] && !candidate['serverConfig'])
+        missing.push('rconPassword');
       break;
     }
   }

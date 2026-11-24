@@ -17,7 +17,6 @@ import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { createGzip, createGunzip } from 'node:zlib';
 import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
-import { loadavg } from 'node:os';
 import { z } from 'zod';
 import {
   reforgerHostCommand,
@@ -45,10 +44,11 @@ import { createReforgerWorkshopClient } from './reforger-workshop';
 import { readReforgerJournal } from './reforger-telemetry';
 import { convertReforgerHostArchive } from './reforger-archive';
 import { createReforgerModCache } from './reforger-mod-cache';
+import { runReforgerOwnedUpdate } from './reforger-owned-job';
 import {
-  ownedReforgerJobActive,
-  runReforgerOwnedUpdate,
-} from './reforger-owned-job';
+  createLinuxReforgerPlatform,
+  type ReforgerHostPlatform,
+} from './reforger-platform';
 import {
   createReforgerConsoleWatcher,
   createReforgerGameEventAssembler,
@@ -102,6 +102,8 @@ type Options = {
   logRotation?: { maxBytes?: number; keepBytes?: number; intervalMs?: number };
   /** Starts the game process of a scenario scan. Tests replace the game. */
   spawnScenarioScan?: typeof spawn;
+  /** The operating system of the host. Linux by default. */
+  platform?: ReforgerHostPlatform;
 };
 type Job = {
   id: string;
@@ -477,7 +479,9 @@ export async function createReforgerHostController(options: Options) {
   } catch {
     resources = [];
   }
+  const platform = options.platform ?? createLinuxReforgerPlatform();
   const sampleResources = createReforgerResourceSampler({
+    platform,
     disks: [
       { label: 'Game profile', path: profile },
       { label: 'Agent state', path: stateRoot },
@@ -546,16 +550,8 @@ export async function createReforgerHostController(options: Options) {
     stateRoot,
     protectEnrolledPaths,
   );
-  async function procIdentity(pid: number) {
-    try {
-      const text = await fs.readFile(`/proc/${pid}/stat`, 'utf8'),
-        end = text.lastIndexOf(')');
-      const fields = text.slice(end + 2).split(' ');
-      return fields[19] ?? null;
-    } catch {
-      return null;
-    }
-  }
+  const procIdentity = async (pid: number) =>
+    (await platform.inspect(pid))?.start ?? null;
   async function ownedRunning() {
     if (!state.process) return false;
     if (
@@ -565,35 +561,28 @@ export async function createReforgerHostController(options: Options) {
       !child.killed
     )
       return true;
-    const start = await procIdentity(state.process.pid);
-    if (!start || start !== state.process.start) return false;
+    const info = await platform.inspect(state.process.pid);
+    if (!info?.executable || info.start !== state.process.start) return false;
     try {
-      return (
-        (await fs.realpath(`/proc/${state.process.pid}/exe`)) ===
-        (await fs.realpath(exe))
-      );
+      return platform.samePath(info.executable, await fs.realpath(exe));
     } catch {
       return false;
     }
   }
   async function matchingProcess() {
-    if (process.platform !== 'linux') return null;
-    const entries = await fs.readdir('/proc');
-    for (const entry of entries.filter((item) => /^\d+$/.test(item))) {
-      try {
-        if (
-          (await fs.realpath(`/proc/${entry}/exe`)) !== (await fs.realpath(exe))
-        )
-          continue;
-        const args = (await fs.readFile(`/proc/${entry}/cmdline`))
-          .toString()
-          .split('\0');
-        const index = args.indexOf('-config');
-        if (index >= 0 && resolve(args[index + 1] ?? '') === configPath)
-          return Number(entry);
-      } catch {
-        /* Another process may exit while inspected. */
-      }
+    let executable: string;
+    try {
+      executable = await fs.realpath(exe);
+    } catch {
+      return null;
+    }
+    for (const info of await platform.running(executable)) {
+      const index = info.argv.indexOf('-config');
+      if (
+        index >= 0 &&
+        platform.samePath(resolve(info.argv[index + 1] ?? ''), configPath)
+      )
+        return info.pid;
     }
     return null;
   }
@@ -995,7 +984,7 @@ export async function createReforgerHostController(options: Options) {
       {
         cwd: dirname(exe),
         stdio: ['ignore', output.fd, output.fd],
-        detached: process.platform === 'linux',
+        detached: platform.detached,
         windowsHide: true,
         shell: false,
       },
@@ -1101,13 +1090,15 @@ export async function createReforgerHostController(options: Options) {
         'No game started by WarGuardian is running. Take over the running game before stopping it.',
       );
     const pid = state.process!.pid;
-    process.kill(pid, 'SIGTERM');
+    platform.stop(pid);
     const until = Date.now() + 15000;
     while ((await ownedRunning()) && Date.now() < until)
       await new Promise((resolve) => setTimeout(resolve, 100));
     if (await ownedRunning())
       throw new Error(
-        'The game has not stopped. No forced kill was sent. Inspect the host before changing files.',
+        platform.gracefulStop
+          ? 'The game has not stopped. No forced kill was sent. Inspect the host before changing files.'
+          : 'The game has not stopped. Inspect the host before changing files.',
       );
     recordEvent({
       kind: 'stopped',
@@ -1896,7 +1887,7 @@ export async function createReforgerHostController(options: Options) {
           throw new Error('There is no interrupted host job to review.');
         if (
           state.job.action === 'update' &&
-          (await ownedReforgerJobActive(state.job.id, state.job.group))
+          (await platform.updater.active(state.job.id, state.job.group))
         )
           throw new Error(
             'The interrupted update is still running on the host. Wait or inspect the host.',
@@ -2285,6 +2276,7 @@ export async function createReforgerHostController(options: Options) {
               id: pending.id,
               signal: abort.signal,
               output: log,
+              platform: options.platform,
               onSpawn: (group) =>
                 serial(async () => {
                   if (state.job?.id === pending.id) {
@@ -2440,18 +2432,9 @@ export async function createReforgerHostController(options: Options) {
       if (resource === 'status') {
         const managed = await ownedRunning(),
           external = managed ? null : await matchingProcess();
-        let memoryBytes: number | null = null;
-        if (managed)
-          try {
-            const status = await fs.readFile(
-              `/proc/${state.process!.pid}/status`,
-              'utf8',
-            );
-            const match = /^VmRSS:\s+(\d+) kB/m.exec(status);
-            if (match) memoryBytes = Number(match[1]) * 1024;
-          } catch {
-            /* Unsupported host telemetry stays absent. */
-          }
+        const memoryBytes = managed
+          ? (await platform.usage(state.process!.pid)).memoryBytes
+          : null;
         let freeDiskBytes: number | null = null;
         try {
           const info = await fs.statfs(profile);
@@ -2466,7 +2449,7 @@ export async function createReforgerHostController(options: Options) {
           job: state.job,
           autoRestart: state.autoRestart,
           memoryBytes,
-          loadAverage: process.platform === 'linux' ? loadavg()[0] : null,
+          loadAverage: platform.loadAverage(),
           freeDiskBytes,
           capabilities: [
             'lifecycle',

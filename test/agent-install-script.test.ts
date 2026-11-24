@@ -985,7 +985,7 @@ void test('only a BEServer_x64 file of the account of the discovered game proces
       [
         join(game, 'battleye/notes.cfg'),
         server.pid!,
-        /not a BattlEye RCON file/,
+        /not an RCON configuration file/,
       ],
       [profiles, server.pid!, null],
       [

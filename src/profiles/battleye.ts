@@ -1,4 +1,11 @@
+import { posix, win32 } from 'node:path';
 import type { BattlEyeServerConfig } from '../config';
+import type { BohemiaHostController } from '../games/bohemia-host';
+import {
+  bohemiaHostPaths,
+  bohemiaHostResources,
+  type BohemiaHostResource,
+} from '../../vendor/games/bohemia-host';
 import { AgentError } from '../errors';
 import {
   battleyeAddBan,
@@ -46,7 +53,34 @@ import {
   type ProfileHandler,
 } from './types';
 
+/** Where the host settings and state of one server live. */
+export type BohemiaHostLocations = {
+  settingsFile: string;
+  stateDirectory: string;
+};
+
+/**
+ * `hosts/<serverId>.json` beside the Agent configuration, and
+ * `hosts/<serverId>` in the state folder.
+ */
+export function bohemiaHostLocations(
+  serverId: string,
+  locations: { configFile: string; stateDirectory: string },
+): BohemiaHostLocations {
+  const path = locations.configFile.includes('\\') ? win32 : posix;
+  return {
+    settingsFile: path.join(
+      path.dirname(locations.configFile),
+      'hosts',
+      `${serverId}.json`,
+    ),
+    stateDirectory: path.join(locations.stateDirectory, 'hosts', serverId),
+  };
+}
+
 export type BattlEyeProfileOptions = {
+  /** Game host management. Without it, host routes are unsupported. */
+  host?: BohemiaHostLocations;
   session?: Omit<BattlEyeSessionOptions, 'endpoint' | 'onMessage'>;
   reconnectMs?: number;
   /** A login quiet for longer is checked with a keep-alive before a write. Default 10 s, 0 always checks. */
@@ -118,6 +152,35 @@ export function createBattlEyeProfile(
   });
   let reconnect: NodeJS.Timeout | undefined;
   let tail: { close(): void } | undefined;
+  let host: Promise<BohemiaHostController> | null = null;
+
+  /** The host controller, created on first use from the settings file. */
+  function hostController(): Promise<BohemiaHostController> {
+    const locations = options.host;
+    if (!locations)
+      return Promise.reject(
+        new AgentError(400, 'unsupported', 'Unsupported agent command.'),
+      );
+    host ??= (async () => {
+      const { createBohemiaHostController, readBohemiaHostSettings } =
+        await import('../games/bohemia-host');
+      const settings = await readBohemiaHostSettings(locations.settingsFile);
+      if (!settings)
+        throw new AgentError(503, 'not-configured', 'Host settings missing.');
+      return createBohemiaHostController({
+        serverId: server.serverId,
+        game: server.game,
+        settings,
+        stateDirectory: locations.stateDirectory,
+        externalRunning: () => session.connected,
+      });
+    })();
+    // A missing or invalid settings file is read again on the next request.
+    host.catch(() => {
+      host = null;
+    });
+    return host;
+  }
 
   const probeAfterMs = options.probeAfterMs ?? 10_000;
 
@@ -269,6 +332,11 @@ export function createBattlEyeProfile(
         });
     },
     async close() {
+      if (host)
+        await host.then(
+          (controller) => controller.close(),
+          () => {},
+        );
       clearInterval(reconnect);
       tail?.close();
       session.close();
@@ -296,6 +364,36 @@ export function createBattlEyeProfile(
             entries: page.items,
             dropped: page.dropped,
           } satisfies NativeIdentityFeed);
+        }
+        if (path.startsWith(bohemiaHostPaths.prefix)) {
+          const resource = path.slice(bohemiaHostPaths.prefix.length);
+          if (
+            command.method === 'POST' &&
+            command.path === bohemiaHostPaths.command
+          ) {
+            let body: unknown;
+            try {
+              body = JSON.parse(command.body ?? 'null');
+            } catch {
+              throw invalidOperation();
+            }
+            return jsonResponse(
+              200,
+              await (await hostController()).execute(body),
+            );
+          }
+          if (
+            command.method === 'GET' &&
+            (bohemiaHostResources as readonly string[]).includes(resource)
+          ) {
+            const query = new URLSearchParams(command.path.split('?')[1] ?? '');
+            return jsonResponse(
+              200,
+              await (
+                await hostController()
+              ).read(resource as BohemiaHostResource, query),
+            );
+          }
         }
         return unsupportedRoute();
       } catch (error) {
