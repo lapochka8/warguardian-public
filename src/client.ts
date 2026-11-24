@@ -67,6 +67,7 @@ export function createSignedClient(options: SignedClientOptions) {
   const fetcher = options.fetcher ?? fetch;
   const now = options.now ?? Date.now;
   const origin = new URL(options.panel);
+  let panelAheadMs = 0;
 
   /** `signal` ends the request early, for example when the service stops. */
   async function post(
@@ -128,6 +129,7 @@ export function createSignedClient(options: SignedClientOptions) {
         'panel-unauthenticated',
         'WarGuardian response authentication failed.',
       );
+    panelAheadMs = responseAt - now();
     try {
       return JSON.parse(raw.toString('utf8'));
     } catch {
@@ -139,6 +141,10 @@ export function createSignedClient(options: SignedClientOptions) {
     }
   }
 
-  return { post };
+  /**
+   * How far the panel clock is ahead of the host clock, from the last
+   * authenticated response. It is 0 before the first response.
+   */
+  return { post, panelAheadMs: () => panelAheadMs };
 }
 export type SignedClient = ReturnType<typeof createSignedClient>;

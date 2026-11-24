@@ -2,7 +2,7 @@
 
 ## What is WarGuardian?
 
-WarGuardian is a hosted RCON panel for community server administrators. It supports WARDOGS, and Arma Reforger, Arma 3 and DayZ in beta. It combines server controls with player moderation, staff access, shared ban lists and evidence review.
+WarGuardian is a hosted RCON panel for community server administrators. It supports WARDOGS, and Arma Reforger, Arma 3, DayZ and Rust in beta. It combines server controls with player moderation, staff access, shared ban lists and evidence review.
 
 The [current feature catalog](features.md) also covers reports and tickets, Steam context, watchlists, map controls, priority access, automation, public pages and authorized integrations.
 
@@ -24,7 +24,7 @@ No. Player evidence reviews support staff investigation. Review the available ev
 
 ## Which games are available?
 
-WARDOGS is publicly supported. Arma Reforger, Arma 3 and DayZ are available in beta. Squad, Hell Let Loose and Rust are planned and cannot currently be connected. [Integration details](integrations.md).
+WARDOGS is publicly supported. Arma Reforger, Arma 3, DayZ and Rust are available in beta. Squad and Hell Let Loose are planned and cannot currently be connected. [Integration details](integrations.md).
 
 ## Where are current prices and support?
 

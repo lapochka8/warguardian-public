@@ -54,7 +54,9 @@ export function createReforgerWorkshopClient(
 ) {
   const fetcher = options.fetcher ?? fetch,
     cache = new Map<string, { at: number; data: unknown }>(),
-    pending = new Map<string, Promise<unknown>>();
+    pending = new Map<string, Promise<unknown>>(),
+    /** Paths whose last reply was a placeholder from the provider's local index. */
+    placeholders = new Set<string>();
   let queue = Promise.resolve(),
     nextAt = 0,
     blockedUntil = 0;
@@ -125,6 +127,16 @@ export function createReforgerWorkshopClient(
       const result = schema.parse(
         JSON.parse(Buffer.concat(chunks).toString('utf8')),
       );
+      // A query the provider has not answered recently is served at once from
+      // its local index, which can be partial or empty, while it refreshes.
+      // That placeholder is not cached.
+      if (
+        response.headers.get('x-refresh-status')?.toLowerCase() === 'queued'
+      ) {
+        placeholders.add(path);
+        return result;
+      }
+      placeholders.delete(path);
       cache.set(path, { at: Date.now(), data: result });
       while (cache.size > 128) cache.delete(cache.keys().next().value!);
       return result;
@@ -157,16 +169,18 @@ export function createReforgerWorkshopClient(
           mods: [],
         });
       const path = `mods?search=${encodeURIComponent(text)}&page=${page}&sort=${sort}`;
-      const response = await request(
-        path,
-        z.object({
-          status: z.literal('success'),
-          meta: z
-            .object({ totalPages: z.number().int().nonnegative() })
-            .optional(),
-          data: z.array(preview).max(100),
-        }),
-      );
+      const shape = z.object({
+        status: z.literal('success'),
+        meta: z
+          .object({ totalPages: z.number().int().nonnegative() })
+          .optional(),
+        data: z.array(preview).max(100),
+      });
+      let response = await request(path, shape);
+      // An empty placeholder is asked once more, one request slot later,
+      // when the provider has usually finished its refresh.
+      if (placeholders.has(path) && !response.data.length)
+        response = await request(path, shape);
       return reforgerWorkshopSearch.parse({
         provider: 'reforgermods.net',
         fetchedAt: cache.get(path)?.at ?? Date.now(),

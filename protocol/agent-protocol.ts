@@ -207,6 +207,7 @@ export const agentProfiles = [
   'arma-reforger',
   'battleye',
   'squad-family',
+  'rust',
 ] as const;
 export const agentProfileSchema = z.enum(agentProfiles);
 export type AgentProfile = z.infer<typeof agentProfileSchema>;
@@ -221,6 +222,7 @@ export const agentGameIds = [
   'arma-reforger',
   'arma3',
   'dayz',
+  'rust',
 ] as const;
 /**
  * The games an agent reports from its host. The agent keeps its Squad family
@@ -231,6 +233,7 @@ export const agentDiscoverableGameIds = [
   'arma-reforger',
   'arma3',
   'dayz',
+  'rust',
 ] as const;
 
 /** The agent build targets. */
@@ -270,9 +273,82 @@ export const nativeRelayPaths = Object.freeze({
 const nativeFeedPath =
   /^\/native\/v1\/(?:events|identity)(?:\?cursor=[A-Za-z0-9_-]{1,64})?$/;
 
+/**
+ * The Arma 3 and DayZ game host routes of the native relay. Reads name a
+ * fixed resource. A log read may name one log file. The panel and the
+ * agent both check the command body against the host command schema.
+ */
+export const nativeHostCommandPath = '/native/v1/host/command';
+const nativeHostReadPath =
+  /^\/native\/v1\/host\/(?:status|config|backups|mods|plugins|admins|map\?offset=\d{1,9}|plugin-config\?name=[A-Za-z0-9_]{1,80}|logs(?:\?name=[A-Za-z0-9_.%-]{1,480})?)$/;
+/**
+ * The host actions the relay passes to the Agent. It must list every action
+ * of `bohemiaHostCommand`; a test compares the two.
+ */
+export const nativeHostActions: ReadonlySet<string> = new Set([
+  'start',
+  'stop',
+  'restart',
+  'save-config',
+  'save-mods',
+  'install-mods',
+  'apply-mods',
+  'revert-mods',
+  'check-mod-updates',
+  'backup',
+  'restore',
+  'remove-backup',
+]);
+
+/**
+ * The host actions of a Rust server that the relay passes as well. It must
+ * list every action of `rustHostCommand`; a test compares the two.
+ */
+export const nativeRustHostActions: ReadonlySet<string> = new Set([
+  'start',
+  'stop',
+  'restart',
+  'update',
+  'save-config',
+  'wipe',
+  'backup',
+  'restore',
+  'remove-backup',
+  'install-framework',
+  'remove-framework',
+  'install-plugin',
+  'rollback-plugin',
+  'remove-plugin',
+  'save-plugin-config',
+  'update-plugins',
+  'upload-plugin',
+]);
+
 function nativeRelayCommandAllowed(verb: string, path: string) {
-  if (verb === 'POST') return path === nativeRelayPaths.op;
-  return verb === 'GET' && nativeFeedPath.test(path);
+  if (verb === 'POST')
+    return path === nativeRelayPaths.op || path === nativeHostCommandPath;
+  return (
+    verb === 'GET' &&
+    (nativeFeedPath.test(path) || nativeHostReadPath.test(path))
+  );
+}
+
+/** A host command body: one JSON object with a known action. */
+function nativeHostBodyAllowed(body: string | undefined) {
+  if (typeof body !== 'string') return false;
+  try {
+    const value: unknown = JSON.parse(body);
+    return (
+      !!value &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      [nativeHostActions, nativeRustHostActions].some((actions) =>
+        actions.has(String((value as { action?: unknown }).action)),
+      )
+    );
+  } catch {
+    return false;
+  }
 }
 
 /** The relay path of one feed read, with the cursor of the previous read. */
@@ -351,7 +427,11 @@ export const nativeTextLimits = Object.freeze({
   battleye: { maxChars: 200, maxBytes: 400 },
   squadReason: { maxChars: 200, maxBytes: 600 },
   squadMessage: { maxChars: 300, maxBytes: 900 },
+  rustReason: { maxChars: 128, maxBytes: 512 },
+  rustMessage: { maxChars: 256, maxBytes: 1_024 },
 });
+/** Characters that could end a quoted Rust console value or start a command. */
+export const rustForbiddenText = /["\\;]/u;
 /** Characters the Squad family console can read as a command separator. */
 export const squadForbiddenText = /["\\;`|]/u;
 
@@ -465,9 +545,168 @@ export const squadOperationSchema = z.discriminatedUnion('op', [
     .strict(),
 ]);
 
+const rust = { profile: z.literal('rust') };
+const rustReason = gameText(
+  nativeTextLimits.rustReason.maxChars,
+  nativeTextLimits.rustReason.maxBytes,
+  rustForbiddenText,
+);
+const rustMessage = gameText(
+  nativeTextLimits.rustMessage.maxChars,
+  nativeTextLimits.rustMessage.maxBytes,
+  rustForbiddenText,
+);
+const rustGroup = z.string().regex(/^[A-Za-z0-9_-]{1,40}$/);
+const rustPermission = z.string().regex(/^[A-Za-z0-9_.*-]{1,80}$/);
+/** A setting value. An empty value clears the setting. */
+const rustSetting = (maxChars: number) =>
+  z
+    .string()
+    .max(maxChars)
+    .refine((value) => !/[\p{Cc}"\\;]/u.test(value));
+
+/**
+ * Rust. Ban lengths are minutes. The server tools are typed operations too:
+ * the agent takes no console line.
+ */
+export const rustOperationSchema = z.discriminatedUnion('op', [
+  z.object({ ...rust, op: z.literal('players') }).strict(),
+  z.object({ ...rust, op: z.literal('bans') }).strict(),
+  z.object({ ...rust, op: z.literal('status') }).strict(),
+  z.object({ ...rust, op: z.literal('settings') }).strict(),
+  z.object({ ...rust, op: z.literal('plugins') }).strict(),
+  z.object({ ...rust, op: z.literal('groups') }).strict(),
+  z.object({ ...rust, op: z.literal('info') }).strict(),
+  z.object({ ...rust, op: z.literal('positions') }).strict(),
+  z.object({ ...rust, op: z.literal('renderMap') }).strict(),
+  z
+    .object({
+      ...rust,
+      op: z.literal('admin'),
+      change: z.enum(['add', 'remove']),
+      role: z.enum(['owner', 'moderator']),
+      steamId,
+    })
+    .strict(),
+  z
+    .object({
+      ...rust,
+      op: z.literal('give'),
+      steamId,
+      item: z.string().regex(/^[a-z0-9][a-z0-9_.-]{0,59}$/),
+      amount: z.number().int().min(1).max(100_000),
+    })
+    .strict(),
+  z.object({ ...rust, op: z.literal('killPlayer'), steamId }).strict(),
+  z
+    .object({ ...rust, op: z.literal('teleport'), steamId, toSteamId: steamId })
+    .strict(),
+  z
+    .object({
+      ...rust,
+      op: z.literal('skipQueue'),
+      change: z.enum(['add', 'remove']),
+      steamId,
+    })
+    .strict(),
+  z
+    .object({
+      ...rust,
+      op: z.literal('lookup'),
+      kind: z.enum(['combat', 'team']),
+      steamId,
+    })
+    .strict(),
+  z.object({ ...rust, op: z.literal('group'), group: rustGroup }).strict(),
+  z
+    .object({
+      ...rust,
+      op: z.literal('grantGroup'),
+      group: rustGroup,
+      permission: rustPermission,
+    })
+    .strict(),
+  z
+    .object({
+      ...rust,
+      op: z.literal('revokeGroup'),
+      group: rustGroup,
+      permission: rustPermission,
+    })
+    .strict(),
+  z
+    .object({
+      ...rust,
+      op: z.literal('groupPlayer'),
+      change: z.enum(['add', 'remove']),
+      steamId,
+      group: rustGroup,
+    })
+    .strict(),
+  z
+    .object({
+      ...rust,
+      op: z.literal('kickIfSteamId'),
+      steamId,
+      reason: rustReason,
+    })
+    .strict(),
+  z
+    .object({ ...rust, op: z.literal('broadcast'), message: rustMessage })
+    .strict(),
+  z
+    .object({
+      ...rust,
+      op: z.literal('addBan'),
+      steamId,
+      minutes: z.union([
+        z.literal('permanent'),
+        z.number().int().min(1).max(5_270_400),
+      ]),
+      reason: rustReason,
+    })
+    .strict(),
+  z.object({ ...rust, op: z.literal('removeBanForSteamId'), steamId }).strict(),
+  z.object({ ...rust, op: z.literal('save') }).strict(),
+  z
+    .object({
+      ...rust,
+      op: z.literal('restart'),
+      seconds: z.number().int().min(10).max(3_600),
+      reason: rustReason.optional(),
+    })
+    .strict(),
+  z.object({ ...rust, op: z.literal('restartCancel') }).strict(),
+  z.object({ ...rust, op: z.literal('kickAll'), reason: rustReason }).strict(),
+  z.object({ ...rust, op: z.literal('mute'), steamId }).strict(),
+  z.object({ ...rust, op: z.literal('unmute'), steamId }).strict(),
+  z
+    .object({
+      ...rust,
+      op: z.literal('setSettings'),
+      values: z
+        .object({
+          name: rustSetting(120).min(1).optional(),
+          description: rustSetting(500).optional(),
+          url: rustSetting(300).optional(),
+          headerImage: rustSetting(300).optional(),
+          maxPlayers: z.number().int().min(1).max(1_000).optional(),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      ...rust,
+      op: z.literal('reloadPlugin'),
+      plugin: z.string().regex(/^[A-Za-z0-9_.-]{1,80}$/),
+    })
+    .strict(),
+]);
+
 /** The body of `POST /native/v1/op`. Nothing else is accepted. */
 export const nativeOperationSchema = z
-  .union([battleyeOperationSchema, squadOperationSchema])
+  .union([battleyeOperationSchema, squadOperationSchema, rustOperationSchema])
   .meta({ id: 'nativeAgentOperation' });
 export type NativeOperation = z.infer<typeof nativeOperationSchema>;
 
@@ -500,6 +739,8 @@ function nativeCommandBodyAllowed(command: {
 }) {
   if (agentCommandKind(command.path) !== 'native') return true;
   if (command.method === 'GET') return command.body === undefined;
+  if (command.path === nativeHostCommandPath)
+    return nativeHostBodyAllowed(command.body);
   return parseNativeOperationBody(command.body) !== null;
 }
 
@@ -543,6 +784,17 @@ export const nativeWriteOperations: ReadonlySet<NativeOperation['op']> =
     'kickIfSteamId',
     'warnIfSteamId',
     'removeBanForSteamId',
+    'save',
+    'restart',
+    'restartCancel',
+    'kickAll',
+    'mute',
+    'unmute',
+    'setSettings',
+    'reloadPlugin',
+    'grantGroup',
+    'revokeGroup',
+    'groupPlayer',
   ]);
 
 /**

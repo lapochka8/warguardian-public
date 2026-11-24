@@ -433,8 +433,8 @@ fi
 rm -rf "$runner"
 runner=''
 
-# The service account may read exactly the BattlEye RCON file of the server
-# set up now. The file must belong to the game process that discovery found:
+# The service account may read exactly the RCON file of the server set up
+# now: the BattlEye file of Arma 3 and DayZ, or the server.cfg of Rust. The file must belong to the game process that discovery found:
 # owned by that process's user, with no link on the way. Discovery took it
 # from that process's -bepath, its -profiles folder or the folder of its
 # executable. Folders, other files and other servers keep their permissions.
@@ -447,9 +447,9 @@ while IFS=' ' read -r server pid file; do
     continue
   fi
   case "$(basename -- "$file" | tr '[:upper:]' '[:lower:]')" in
-    beserver_x64*.cfg) ;;
+    beserver_x64*.cfg | server.cfg) ;;
     *)
-      needs_access+=("$file (not a BattlEye RCON file, left unchanged)")
+      needs_access+=("$file (not an RCON configuration file, left unchanged)")
       continue
       ;;
   esac
@@ -479,7 +479,8 @@ while IFS=' ' read -r server pid file; do
   fi
   # BattlEye renames its file while the server runs, so the agent lists the folder.
   folder=$(dirname -- "$file")
-  if ! as_agent test -r "$folder" -a -x "$folder" </dev/null; then
+  if [[ "$(basename -- "$file" | tr '[:upper:]' '[:lower:]')" == beserver_x64*.cfg ]] &&
+    ! as_agent test -r "$folder" -a -x "$folder" </dev/null; then
     needs_access+=("$folder (folder listing)")
   fi
 done <"$rcon_files"

@@ -35,8 +35,13 @@ import {
   trustedCopy,
 } from './privilege';
 import { agentProfileId } from './protocol';
-import { createBattlEyeProfile } from './profiles/battleye';
+import {
+  bohemiaHostLocations,
+  createBattlEyeProfile,
+} from './profiles/battleye';
+import { holdReforgerProfile } from './profile-lock';
 import { createSquadFamilyProfile } from './profiles/squad-family';
+import { createRustProfile } from './profiles/rust';
 import type { ProfileHandler } from './profiles/types';
 import { createWardogsProfile } from './profiles/wardogs';
 import {
@@ -68,14 +73,23 @@ Commands:
  */
 export const notConfiguredExitCode = 78;
 
-async function createHandler(server: ServerConfig): Promise<ProfileHandler> {
+async function createHandler(
+  server: ServerConfig,
+  locations: { configFile: string; stateDirectory: string },
+): Promise<ProfileHandler> {
   switch (server.profile) {
     case 'wardogs':
       return createWardogsProfile(server);
     case 'battleye':
-      return createBattlEyeProfile(server);
+      return createBattlEyeProfile(server, {
+        host: bohemiaHostLocations(server.serverId, locations),
+      });
     case 'squad-family':
       return createSquadFamilyProfile(server);
+    case 'rust':
+      return createRustProfile(server, {
+        host: bohemiaHostLocations(server.serverId, locations),
+      });
     case 'arma-reforger': {
       const { createReforgerProfile } =
         await import('./profiles/arma-reforger');
@@ -90,15 +104,20 @@ function userArguments(): string[] {
 }
 
 /**
- * Hold a kernel lock on the Reforger profile for the life of the process by
- * replacing it with `flock`. The game keeps running if the agent stops.
+ * Hold a kernel lock on the Reforger profile for the life of the process:
+ * on Linux by replacing it with `flock`, on Windows with a named pipe. The
+ * game keeps running if the agent stops.
  */
-function lockReforgerProfile(
+async function lockReforgerProfile(
   server: Extract<ServerConfig, { profile: 'arma-reforger' }>,
   args: string[],
-): void {
+): Promise<void> {
   if (args.includes('--host-lock-held')) return;
   if (!server.host) return;
+  if (process.platform === 'win32') {
+    await holdReforgerProfile(server.host.profile);
+    return;
+  }
   if (typeof process.execve !== 'function')
     throw new AgentError(
       400,
@@ -297,7 +316,7 @@ async function runServers(
       'Run each Arma Reforger server in its own service with --server ID.',
     );
   if (reforger[0]?.profile === 'arma-reforger')
-    lockReforgerProfile(reforger[0], ['run', ...args]);
+    await lockReforgerProfile(reforger[0], ['run', ...args]);
 
   const controller = new AbortController();
   let exitCode = 0;
@@ -332,7 +351,10 @@ async function runServers(
   for (const server of selected) {
     let handler: ProfileHandler;
     try {
-      handler = await createHandler(server);
+      handler = await createHandler(server, {
+        configFile: values.config ?? locations.configFile,
+        stateDirectory: locations.stateDirectory,
+      });
     } catch (error) {
       consoleLogger.error(
         `${server.serverId}: ${errorMessage(error, 'the profile could not start')}`,

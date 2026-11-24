@@ -8,6 +8,7 @@ import {
   agentServerId,
   battleyeGameIds,
   squadFamilyGameIds,
+  rustGameIds,
 } from './protocol';
 
 export type AgentPlatform = 'linux' | 'win32';
@@ -103,7 +104,7 @@ const localOrigin = z
     }
   }, 'Use an HTTP or HTTPS origin.');
 
-const absolutePath = z
+export const absolutePath = z
   .string()
   .min(1)
   .max(1024)
@@ -188,16 +189,38 @@ export const squadServerConfig = z
   })
   .strict();
 
+/**
+ * Rust over local WebRCON. The password and the port come from this entry,
+ * or from the server's `server.cfg` when the entry names that file.
+ */
+export const rustServerConfig = z
+  .object({
+    ...serverFields,
+    profile: z.literal('rust'),
+    game: z.enum(rustGameIds),
+    rconHost: ipv4.optional(),
+    rconPort: port.optional(),
+    rconPassword: z
+      .string()
+      .regex(/^[\x21-\x7e]{3,512}$/)
+      .optional(),
+    /** `server/<identity>/cfg/server.cfg` with `rcon.password`. */
+    serverConfig: absolutePath.optional(),
+  })
+  .strict();
+
 export const serverConfig = z.discriminatedUnion('profile', [
   wardogsServerConfig,
   reforgerServerConfig,
   battleyeServerConfig,
   squadServerConfig,
+  rustServerConfig,
 ]);
 export type ServerConfig = z.infer<typeof serverConfig>;
 export type WardogsServerConfig = z.infer<typeof wardogsServerConfig>;
 export type ReforgerServerConfig = z.infer<typeof reforgerServerConfig>;
 export type BattlEyeServerConfig = z.infer<typeof battleyeServerConfig>;
+export type RustServerConfig = z.infer<typeof rustServerConfig>;
 export type SquadServerConfig = z.infer<typeof squadServerConfig>;
 
 /** `agent.json`. Every field added later needs a default or must be optional. */

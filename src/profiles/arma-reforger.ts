@@ -1,5 +1,6 @@
 import type { ReforgerServerConfig } from '../config';
 import { AgentError } from '../errors';
+import { createWindowsReforgerPlatform } from '../games/reforger-windows';
 import type { AgentCommand } from '../protocol';
 import {
   jsonResponse,
@@ -14,18 +15,18 @@ const unsupportedHostCommand = () =>
   jsonResponse(400, { error: 'Unsupported host command.' });
 
 /**
- * Arma Reforger host management through the bundled host controller. It
- * needs Linux process identity checks and runs one server per process, under
- * the profile lock taken at start.
+ * Arma Reforger host management through the bundled host controller, on
+ * Linux and Windows. It runs one server per process, under the profile lock
+ * taken at start.
  */
 export async function createReforgerProfile(
   server: ReforgerServerConfig,
 ): Promise<ProfileHandler> {
-  if (process.platform !== 'linux')
+  if (process.platform !== 'linux' && process.platform !== 'win32')
     throw new AgentError(
       400,
       'unsupported',
-      'Arma Reforger host management needs Linux.',
+      'Arma Reforger host management needs Linux or Windows.',
     );
   const host = server.host;
   if (!host)
@@ -45,6 +46,9 @@ export async function createReforgerProfile(
     stateDirectory: host.stateDirectory,
     maxFps: host.maxFps,
     logStatsMs: host.logStatsMs,
+    ...(process.platform === 'win32'
+      ? { platform: createWindowsReforgerPlatform() }
+      : {}),
     ...(host.steamcmd ? { steamcmd: host.steamcmd } : {}),
     ...(host.installDirectory
       ? { installDirectory: host.installDirectory }

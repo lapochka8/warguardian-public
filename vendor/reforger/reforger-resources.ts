@@ -1,5 +1,9 @@
 import { promises as fs } from 'node:fs';
-import { cpus, loadavg } from 'node:os';
+import { cpus } from 'node:os';
+import {
+  createLinuxReforgerPlatform,
+  type ReforgerHostPlatform,
+} from './reforger-platform';
 
 export type ReforgerDiskSample = {
   label: string;
@@ -17,48 +21,26 @@ export type ReforgerResourceSample = {
   disks: ReforgerDiskSample[];
 };
 
-/** Reads total and idle CPU time from the first line of /proc/stat. */
-export function parseProcStat(text: string) {
-  const line = text.split('\n').find((row) => row.startsWith('cpu '));
-  if (!line) return null;
-  const values = line.trim().split(/\s+/).slice(1).map(Number);
-  if (values.length < 4 || values.some((value) => !Number.isFinite(value)))
-    return null;
-  const idle = values[3] + (values[4] ?? 0);
-  return { total: values.slice(0, 8).reduce((a, b) => a + b, 0), idle };
-}
-/** Reads user plus system CPU ticks of one process from /proc/<pid>/stat. */
-export function parseProcessStat(text: string) {
-  const fields = text.slice(text.lastIndexOf(')') + 2).split(' ');
-  const user = Number(fields[11]),
-    system = Number(fields[12]);
-  return Number.isFinite(user) && Number.isFinite(system)
-    ? user + system
-    : null;
-}
-export function parseMemInfo(text: string) {
-  const value = (key: string) => {
-    const match = new RegExp(`^${key}:\\s+(\\d+) kB`, 'm').exec(text);
-    return match ? Number(match[1]) * 1024 : null;
-  };
-  const total = value('MemTotal'),
-    available = value('MemAvailable');
-  return total === null || available === null
-    ? null
-    : { total, used: total - available };
-}
+export {
+  parseMemInfo,
+  parseProcessStat,
+  parseProcStat,
+} from './reforger-platform';
+
 const percent = (value: number) => Math.round(value * 1000) / 10;
 
 /** Samples machine CPU, memory and disk use plus the owned game process.
  * Each CPU figure is the share of the whole machine since the last sample,
- * so the first sample has no CPU value. Missing Linux files leave values
- * empty instead of estimating them. */
+ * so the first sample has no CPU value. Values the host cannot report stay
+ * empty instead of being estimated. */
 export function createReforgerResourceSampler(options: {
   disks: { label: string; path: string }[];
   pid: () => number | null;
   read?: (path: string) => Promise<string>;
+  platform?: ReforgerHostPlatform;
 }) {
-  const read = options.read ?? ((path: string) => fs.readFile(path, 'utf8'));
+  const platform =
+    options.platform ?? createLinuxReforgerPlatform(options.read);
   let previous: {
     total: number;
     idle: number;
@@ -66,26 +48,11 @@ export function createReforgerResourceSampler(options: {
     ticks: number | null;
   } | null = null;
   return async function sample(): Promise<ReforgerResourceSample> {
-    const cpu = await read('/proc/stat')
-      .then(parseProcStat)
-      .catch(() => null);
-    const memory = await read('/proc/meminfo')
-      .then(parseMemInfo)
-      .catch(() => null);
+    const { cpu, memory } = await platform.machine();
     const pid = options.pid();
-    let ticks: number | null = null,
-      gameMemoryBytes: number | null = null;
-    if (pid) {
-      ticks = await read(`/proc/${pid}/stat`)
-        .then(parseProcessStat)
-        .catch(() => null);
-      gameMemoryBytes = await read(`/proc/${pid}/status`)
-        .then((text) => {
-          const match = /^VmRSS:\s+(\d+) kB/m.exec(text);
-          return match ? Number(match[1]) * 1024 : null;
-        })
-        .catch(() => null);
-    }
+    const { ticks, memoryBytes: gameMemoryBytes } = pid
+      ? await platform.usage(pid)
+      : { ticks: null, memoryBytes: null };
     let cpuPercent: number | null = null,
       gameCpuPercent: number | null = null;
     if (cpu && previous && cpu.total > previous.total) {
@@ -125,7 +92,7 @@ export function createReforgerResourceSampler(options: {
           ? null
           : Math.min(100, Math.max(0, gameCpuPercent)),
       gameMemoryBytes,
-      loadAverage: process.platform === 'linux' ? loadavg()[0] : null,
+      loadAverage: platform.loadAverage(),
       cores: cpus().length,
       disks,
     };
