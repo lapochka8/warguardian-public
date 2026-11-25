@@ -10,6 +10,7 @@ import {
   checkedPassword,
   parseBattlEyeConfig,
   readText,
+  rustFileName,
 } from './games/game-config';
 import { discoveredServer, type DiscoveredServer } from './protocol';
 
@@ -462,7 +463,8 @@ function passwordFound(password: string | undefined): boolean {
 
 /**
  * The real path of `file` when discovery may use it for the process, or
- * why not. The file must be a BattlEye configuration with no link in any
+ * why not. The file must be a BattlEye configuration, or the settings file
+ * of a Rust server for `kind` 'rust', with no link in any
  * part of its path, and it must belong to the account that runs the
  * process: on Linux the same user ID owns it. On Windows the same SID owns
  * it, or that account may write it while no group of every user may.
@@ -472,6 +474,7 @@ async function checkGameFile(
   entry: ProcessEntry,
   platform: NodeJS.Platform,
   readSecurity: FileSecurityReader,
+  kind: 'battleye' | 'rust' = 'battleye',
 ): Promise<{ real: string } | { problem: string }> {
   const path = pathApi(platform);
   let real: string;
@@ -480,7 +483,10 @@ async function checkGameFile(
   } catch {
     return { problem: `${file} cannot be resolved.` };
   }
-  if (!battleyeFileName.test(path.basename(real)))
+  if (kind === 'rust') {
+    if (!rustFileName.test(path.basename(real)))
+      return { problem: `${file} is not a Rust settings file.` };
+  } else if (!battleyeFileName.test(path.basename(real)))
     return { problem: `${file} is not a BattlEye configuration file.` };
   const named = path.resolve(file);
   if (
@@ -641,7 +647,13 @@ export async function inspectProcess(
     let problem: string | undefined;
     let text = '';
     if (cfg && (await fs.stat(cfg).catch(() => null))?.isFile()) {
-      const checked = await checkGameFile(cfg, entry, platform, readSecurity);
+      const checked = await checkGameFile(
+        cfg,
+        entry,
+        platform,
+        readSecurity,
+        'rust',
+      );
       if ('problem' in checked) problem = checked.problem;
       else
         try {
