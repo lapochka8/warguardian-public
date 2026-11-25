@@ -56,6 +56,9 @@ export function parseSquadRconConfig(
 export const battleyeFileName =
   /^beserver(?:_x64)?(?:_active_[^/\\]{1,64})?\.cfg$/i;
 
+/** The settings file of a Rust server identity. */
+export const rustFileName = /^server\.cfg$/i;
+
 /**
  * The active BattlEye configuration in a directory. A running server renames
  * `BEServer_x64.cfg` to `BEServer_x64_active_<id>.cfg`, so the newest active

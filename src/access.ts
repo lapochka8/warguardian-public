@@ -2,13 +2,12 @@ import { promises as fs } from 'node:fs';
 import { posix, win32 } from 'node:path';
 import type { AgentConfig } from './config';
 import { printablePath } from './discovery';
-import { battleyeFileName } from './games/game-config';
+import { battleyeFileName, rustFileName } from './games/game-config';
 
 /** One path the service account must read: a file, or a folder it lists. */
 export type AccessEntry = { kind: 'file' | 'folder'; path: string };
 
 const squadFileName = /^rcon\.cfg$/i;
-const rustFileName = /^server\.cfg$/i;
 
 /**
  * True for a path that a privileged installer may place on an `icacls` or

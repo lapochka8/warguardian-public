@@ -813,3 +813,50 @@ void test('the access list prints only existing absolute paths that are safe on 
       assert.ok(!path.includes('"'));
   });
 });
+
+void test('discovery reads the RCON settings of a Rust server from the server.cfg of its identity', async () => {
+  await withDirectory(async (directory) => {
+    const game = join(directory, 'rust');
+    const folder = join(game, 'server', 'main', 'cfg');
+    await mkdir(folder, { recursive: true });
+    const file = join(folder, 'server.cfg');
+    await writeFile(file, `rcon.port 28216\nrcon.password "${password}"\n`);
+    const rust = (
+      account: { uid?: number | null; sid?: string | null } = { uid, sid },
+    ) =>
+      inspectProcess(
+        {
+          pid: 11,
+          executable: join(
+            game,
+            process.platform === 'win32'
+              ? 'RustDedicated.exe'
+              : 'RustDedicated',
+          ),
+          argv: ['RustDedicated', '-batchmode', '+server.identity', 'main'],
+          cwd: game,
+          ...account,
+        },
+        process.platform,
+      );
+
+    const found = await rust();
+    assert.equal(found?.profile, 'rust');
+    assert.equal(found?.problem, undefined);
+    assert.equal(found?.rconConfigured, true);
+    assert.deepEqual(found?.rconFiles, [file]);
+    assert.equal(found?.summary.rconPort, 28216);
+    assert.deepEqual(found?.settings, {
+      game: 'rust',
+      rconPort: 28216,
+      serverConfig: file,
+    });
+
+    // Another account's process gets nothing from the file.
+    const other = await rust(stranger);
+    assert.match(other?.problem ?? '', /belongs to another account/);
+    assert.equal(other?.rconConfigured, false);
+    assert.equal(other?.rconFiles, undefined);
+    assert.equal(other?.summary.rconPort, 28016);
+  });
+});

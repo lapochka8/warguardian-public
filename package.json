@@ -1,6 +1,6 @@
 {
   "name": "warguardian-agent",
-  "version": "1.1.21",
+  "version": "1.1.25",
   "private": true,
   "description": "Connects game servers on a host to WarGuardian.",
   "license": "PolyForm-Shield-1.0.0",
